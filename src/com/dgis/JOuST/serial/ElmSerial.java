@@ -16,32 +16,34 @@ import com.dgis.JOuST.OBDInterface;
 
 public class ElmSerial implements ObdSerial {
 
-	private static final int  EMPTY=    0;
-	private static final int  DATA =    1;
-	private static final int  PROMPT=   2;
-	private static final int  TIMEOUT=   3;
-	
-	private static final byte SPECIAL_DELIMITER='\t';
-	
-    private static Logger logger = Logger.getLogger(ElmSerial.class.getName());
-    private String serialDevice;
-    private int baud;
-    
-    private InputStream input;
-    private OutputStream    output;
+	private static final int EMPTY = 0;
+	private static final int DATA = 1;
+	private static final int PROMPT = 2;
+	private static final int TIMEOUT = 3;
+
+	private static final byte SPECIAL_DELIMITER = '\t';
+
+	private static Logger logger = Logger.getLogger(ElmSerial.class.getName());
+	private String serialDevice;
+	private int baud;
+
+	private InputStream input;
+	private OutputStream output;
 	private SerialPort port;
-	
-	/////PROTOCOL SPECIFIC VARIABLES/////
-	private int errorCode=SERIAL_ERROR;
-	
-	public ElmSerial(String serialDevice, int baud){
+
+	// ///PROTOCOL SPECIFIC VARIABLES/////
+	private int errorCode = SERIAL_ERROR;
+	private int device;
+
+	public ElmSerial(String serialDevice, int baud) {
 		this.serialDevice = serialDevice;
 		this.baud = baud;
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	@Override
-	public void open_comport() throws PortNotFoundException, PortInUseException, UnsupportedCommOperationException, IOException {
+	public void open_comport() throws PortNotFoundException,
+			PortInUseException, UnsupportedCommOperationException, IOException {
 		logger.info("Trying to open " + serialDevice + " @ " + baud + " baud");
 
 		// Get the set of all ports seen by RXTX
@@ -54,14 +56,14 @@ public class ElmSerial implements ObdSerial {
 		for (CommPortIdentifier pid : portIdentifiers) {
 			// Is the name the one we wanted?
 			if (pid.getName().equals(serialDevice)) {
-				//Is it a serial device?
+				// Is it a serial device?
 				if (pid.getPortType() == CommPortIdentifier.PORT_SERIAL) {
 
 					portId = pid;
 					break;
 
 				} else {
-					//TODO Make a config option to ignore wrong type
+					// TODO Make a config option to ignore wrong type
 					logger.warning(serialDevice
 							+ " does not seem to be a serial device (type: "
 							+ pid.getPortType() + "), ignoring.");
@@ -75,44 +77,47 @@ public class ElmSerial implements ObdSerial {
 			throw new PortNotFoundException(serialDevice);
 		}
 
-		//We now have a valid portId.
+		// We now have a valid portId.
 
-		//Try to lock port
-		logger.finer("Trying to get exclusive access to "+serialDevice);
-		try{
-			port  = (SerialPort) portId.open(
-		        OBDInterface.APPLICATION_NAME, 
-		        10000   // Wait max. 10 sec. to acquire port
-		    );
+		// Try to lock port
+		logger.finer("Trying to get exclusive access to " + serialDevice);
+		try {
+			port = (SerialPort) portId.open(OBDInterface.APPLICATION_NAME,
+					10000 // Wait max. 10 sec. to acquire port
+					);
 			logger.finer("Access granted.");
-	
+
 			try {
-				//Locked OK. Try setting parameters and opening port.
-				port.setSerialPortParams(baud, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+				// Locked OK. Try setting parameters and opening port.
+				port.setSerialPortParams(baud, SerialPort.DATABITS_8,
+						SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
 
 				try {
-					  input = port.getInputStream();
-					  output = port.getOutputStream();
-					  //WE ARE DONE.
-					  return;
+					input = port.getInputStream();
+					output = port.getOutputStream();
+					// WE ARE DONE.
+					return;
 				} catch (IOException e) {
-					  logger.warning("Cannot open port: "+e.getLocalizedMessage());
-					  throw e;
+					logger.warning("Cannot open port: "
+							+ e.getLocalizedMessage());
+					throw e;
 				}
 
 			} catch (UnsupportedCommOperationException e) {
-				logger.warning(serialDevice+" does not seem to support 8N1 @ "+baud);
+				logger.warning(serialDevice
+						+ " does not seem to support 8N1 @ " + baud);
 				throw e;
 			}
-		} catch (PortInUseException inUseException){
-			logger.warning(serialDevice+" seems to be in use by "+inUseException.currentOwner);
+		} catch (PortInUseException inUseException) {
+			logger.warning(serialDevice + " seems to be in use by "
+					+ inUseException.currentOwner);
 			throw inUseException;
 		}
 	}
-	
+
 	@Override
 	public void close_comport() throws IOException {
-		logger.info("Closing "+port.getName());
+		logger.info("Closing " + port.getName());
 		input.close();
 		output.close();
 		port.close();
@@ -122,55 +127,54 @@ public class ElmSerial implements ObdSerial {
 	public String getErrorMessage() {
 		return getErrorMessage(errorCode);
 	}
-	
-	//Adapted from ScanTool
+
+	// Adapted from ScanTool
 	private String getErrorMessage(int error) {
-	   switch (error)
-	   {
-	      case BUS_ERROR:
-	         return "Bus Error: OBDII bus is shorted to Vbatt or Ground.";
+		switch (error) {
+		case BUS_ERROR:
+			return "Bus Error: OBDII bus is shorted to Vbatt or Ground.";
 
-	      case BUS_BUSY:
-	         return "OBD Bus Busy. Try again.";
+		case BUS_BUSY:
+			return "OBD Bus Busy. Try again.";
 
-	      case BUS_INIT_ERROR:
-	         return "OBD Bus Init Error. Check connection to the vehicle, make sure the vehicle is OBD-II compliant, and ignition is ON.";
+		case BUS_INIT_ERROR:
+			return "OBD Bus Init Error. Check connection to the vehicle, make sure the vehicle is OBD-II compliant, and ignition is ON.";
 
-	      case UNABLE_TO_CONNECT:
-	         return "Unable to connect to OBD bus. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
+		case UNABLE_TO_CONNECT:
+			return "Unable to connect to OBD bus. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
 
-	      case CAN_ERROR:
-	         return "CAN Error. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
+		case CAN_ERROR:
+			return "CAN Error. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
 
-	      case DATA_ERROR:
-	      case DATA_ERROR2:
-	         return "Data Error: there has been a loss of data. You may have a bad connection to the vehicle, check the cable and try again.";
+		case DATA_ERROR:
+		case DATA_ERROR2:
+			return "Data Error: there has been a loss of data. You may have a bad connection to the vehicle, check the cable and try again.";
 
-	      case BUFFER_FULL:
-	         return "Hardware data buffer overflow.";
+		case BUFFER_FULL:
+			return "Hardware data buffer overflow.";
 
-	      case SERIAL_ERROR:
-	      case UNKNOWN_CMD:
-	      case RUBBISH:
-	         return "Serial Link Error: please check connection between computer and scan tool.";
-	      default:
-	         return String.format("Unknown error occured: %i", error);
-	   }
+		case SERIAL_ERROR:
+		case UNKNOWN_CMD:
+		case RUBBISH:
+			return "Serial Link Error: please check connection between computer and scan tool.";
+		default:
+			return String.format("Unknown error occured: %i", error);
+		}
 	}
 
 	@Override
 	public ElmSerialState getState() {
-		//TODO Make this not dumb.
+		// TODO Make this not dumb.
 		return ElmSerialState.READY;
 	}
 
-	private void send_command(String c) throws IOException{
+	private void send_command(String c) throws IOException {
 		byte[] buf = new byte[c.length()];
-		for(int x=0;x<buf.length;x++)
-			buf[x]=(byte) c.charAt(x);
+		for (int x = 0; x < buf.length; x++)
+			buf[x] = (byte) c.charAt(x);
 		send_command(buf);
 	}
-	
+
 	@Override
 	public int process_response(byte[] cmd_sent, byte[] msg_received)
 			throws IOException {
@@ -183,7 +187,7 @@ public class ElmSerial implements ObdSerial {
 		if (cmd_sent != null) {
 			for (i = 0; cmd_sent[i] != 0; i++) {
 				if (cmd_sent[i] != msg_received[msgPos]) // if the characters
-															// are not the same,
+				// are not the same,
 				{
 					echo_on = false; // say that echo is off
 					break; // break out of the loop
@@ -196,23 +200,24 @@ public class ElmSerial implements ObdSerial {
 				send_command("ate0"); // turn off the echo
 				// wait for chip response or timeout
 				// TODO test timeout
-				boolean timedOut=false;
-				while (true){
-					int res = read_comport(temp_buf, AT_TIMEOUT); 
-					if(res == PROMPT) break;
-					if(res == TIMEOUT) {
-						timedOut=true;
+				boolean timedOut = false;
+				while (true) {
+					int res = read_comport(temp_buf, AT_TIMEOUT);
+					if (res == PROMPT)
+						break;
+					if (res == TIMEOUT) {
+						timedOut = true;
 						break;
 					}
 				}
-				if (!timedOut)
-				{
+				if (!timedOut) {
 					send_command("atl0"); // turn off linefeeds
-					while (true){
-						int res = read_comport(temp_buf, AT_TIMEOUT); 
-						if(res == PROMPT) break;
-						if(res == TIMEOUT) {
-							timedOut=true;
+					while (true) {
+						int res = read_comport(temp_buf, AT_TIMEOUT);
+						if (res == PROMPT)
+							break;
+						if (res == TIMEOUT) {
+							timedOut = true;
 							break;
 						}
 					}
@@ -222,11 +227,11 @@ public class ElmSerial implements ObdSerial {
 				msgPos = 0;
 		}
 
-		//Find start of string
+		// Find start of string
 		while (msg_received[msgPos] > 0 && (msg_received[msgPos] <= ' '))
 			msgPos++;
 
-		//Pull out string
+		// Pull out string
 		String msg = new String(msg_received, msgPos, msg_received.length
 				- msgPos);
 		if (msg.equals("SEARCHING..."))
@@ -236,11 +241,14 @@ public class ElmSerial implements ObdSerial {
 		else if (msg.equals("BUS INIT: ...OK"))
 			msg += 16;
 
-		//Loop until null encountered
-		for (i = 0; msg_received[msgPos] > 0 && msgPos<msg_received.length; msgPos++) // loop to copy data
+		// Loop until null encountered
+		for (i = 0; msg_received[msgPos] > 0 && msgPos < msg_received.length; msgPos++) // loop
+																						// to
+																						// copy
+																						// data
 		{
 			if (msg_received[msgPos] > ' ') // if the character is not a special
-											// character or space
+			// character or space
 			{
 				if (msg_received[msgPos] == '<') // Detect <DATA_ERROR
 				{
@@ -260,11 +268,11 @@ public class ElmSerial implements ObdSerial {
 				i++;
 			} else if (((msg_received[msgPos] == '\n') || (msg_received[msgPos] == '\r'))
 					&& (msg_received[i - 1] != SPECIAL_DELIMITER)) // if the
-																	// character
-																	// is a CR
-																	// or LF
+				// character
+				// is a CR
+				// or LF
 				msg_received[i++] = SPECIAL_DELIMITER; // replace CR with
-														// SPECIAL_DELIMITER
+			// SPECIAL_DELIMITER
 		}
 
 		if (i > 0)
@@ -317,21 +325,22 @@ public class ElmSerial implements ObdSerial {
 
 	@Override
 	public int read_comport(byte[] buf, int timeout) throws IOException {
-		if(input.available()==0){
+		if (input.available() == 0) {
 			try {
 				Thread.sleep(timeout);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			if(input.available()==0)
+			if (input.available() == 0)
 				return TIMEOUT;
 		}
 		int len = input.read(buf);
-		if(len==0) return EMPTY;
-		logger.finest("RX: "+new String(buf));
-		for(int p=0; p>len;p++){
-			if(buf[p]=='>'){
-			      return PROMPT;
+		if (len == 0)
+			return EMPTY;
+		logger.finest("RX: " + new String(buf));
+		for (int p = 0; p > len; p++) {
+			if (buf[p] == '>') {
+				return PROMPT;
 			}
 		}
 		return DATA;
@@ -340,92 +349,175 @@ public class ElmSerial implements ObdSerial {
 	@Override
 	public void send_command(byte[] command) throws IOException {
 		output.write(command);
-		output.write(new byte[]{'\r'});
+		output.write(new byte[] { '\r' });
 	}
 
-	//Lifted from Scantool
-	String get_protocol_string(int interface_type, int protocol_id)
-	{
-	   switch (interface_type)
-	   {
-	      case INTERFACE_ELM320:
-	         return "SAE J1850 PWM (41.6 kBit/s)";
-	      case INTERFACE_ELM322:
-	         return "SAE J1850 VPW (10.4 kBit/s)";
-	      case INTERFACE_ELM323:
-	         return "ISO 9141-2 / ISO 14230-4 (KWP2000)";
-	      case INTERFACE_ELM327:
-	         switch (protocol_id)
-	         {
-	            case 0:
-	               return "N/A";
-	            case 1:
-	               return "SAE J1850 PWM (41.6 kBit/s)";
-	            case 2:
-	               return "SAE J1850 VPW (10.4 kBit/s)";
-	            case 3:
-	               return "ISO 9141-2";
-	            case 4:
-	               return "ISO 14230-4 KWP2000 (5-baud init)";
-	            case 5:
-	               return "ISO 14230-4 KWP2000 (fast init)";
-	            case 6:
-	               return "ISO 15765-4 CAN (11-bit ID, 500 kBit/s)";
-	            case 7:
-	               return "ISO 15765-4 CAN (29-bit ID, 500 kBit/s)";
-	            case 8:
-	               return "ISO 15765-4 CAN (11-bit ID, 250 kBit/s)";
-	            case 9:
-	               return "ISO 15765-4 CAN (29-bit ID, 250 kBit/s)";
-	         }
-	   }
-	   
-	   return "unknown";
+	// Lifted from Scantool
+	String get_protocol_string(int interface_type, int protocol_id) {
+		switch (interface_type) {
+		case INTERFACE_ELM320:
+			return "SAE J1850 PWM (41.6 kBit/s)";
+		case INTERFACE_ELM322:
+			return "SAE J1850 VPW (10.4 kBit/s)";
+		case INTERFACE_ELM323:
+			return "ISO 9141-2 / ISO 14230-4 (KWP2000)";
+		case INTERFACE_ELM327:
+			switch (protocol_id) {
+			case 0:
+				return "N/A";
+			case 1:
+				return "SAE J1850 PWM (41.6 kBit/s)";
+			case 2:
+				return "SAE J1850 VPW (10.4 kBit/s)";
+			case 3:
+				return "ISO 9141-2";
+			case 4:
+				return "ISO 14230-4 KWP2000 (5-baud init)";
+			case 5:
+				return "ISO 14230-4 KWP2000 (fast init)";
+			case 6:
+				return "ISO 15765-4 CAN (11-bit ID, 500 kBit/s)";
+			case 7:
+				return "ISO 15765-4 CAN (29-bit ID, 500 kBit/s)";
+			case 8:
+				return "ISO 15765-4 CAN (11-bit ID, 250 kBit/s)";
+			case 9:
+				return "ISO 15765-4 CAN (29-bit ID, 250 kBit/s)";
+			}
+		}
+
+		return "unknown";
 	}
 
-	//TODO Find what 'stop' is
-	boolean find_valid_response(byte[] buf, byte[] response, String filter, int[] stop)
-	{
-	   int in_ptr = 0; //in response
-	   int out_ptr = 0; //in buf
-	   buf[0] = 0;
+	// TODO Find what 'stop' is
+	boolean find_valid_response(byte[] buf, byte[] response, String filter,
+			int[] stop) {
+		int in_ptr = 0; // in response
+		int out_ptr = 0; // in buf
+		buf[0] = 0;
 
-	   String responseString = new String(response);
-	   
-	   while (response[in_ptr] != 0)
-	   {
-		   //TODO check this logic
-	      if (responseString.startsWith(filter))
-	      {
-	         while (response[in_ptr]>0 && response[in_ptr] != SPECIAL_DELIMITER) // copy valid response into buf
-	         {
-	            out_ptr = in_ptr;
-	            in_ptr++;
-	            out_ptr++;
-	         }
-	         out_ptr = 0;  // terminate string
-	         if (response[in_ptr] == SPECIAL_DELIMITER)
-	            in_ptr++;
-	         break;
-	      }
-	      else
-	      {
-	         // skip to the next delimiter
-	         while (response[in_ptr]>0 && response[in_ptr] != SPECIAL_DELIMITER)
-	            in_ptr++;
-	         if (response[in_ptr] == SPECIAL_DELIMITER)  // skip the delimiter
-	            in_ptr++;
-	      }
-	   }
+		String responseString = new String(response);
 
-	   if (stop!=null)
-	      stop[0] = in_ptr;
+		while (response[in_ptr] != 0) {
+			// TODO check this logic
+			if (responseString.startsWith(filter)) {
+				while (response[in_ptr] > 0
+						&& response[in_ptr] != SPECIAL_DELIMITER) // copy
+																	// valid
+																	// response
+																	// into buf
+				{
+					out_ptr = in_ptr;
+					in_ptr++;
+					out_ptr++;
+				}
+				out_ptr = 0; // terminate string
+				if (response[in_ptr] == SPECIAL_DELIMITER)
+					in_ptr++;
+				break;
+			} else {
+				// skip to the next delimiter
+				while (response[in_ptr] > 0
+						&& response[in_ptr] != SPECIAL_DELIMITER)
+					in_ptr++;
+				if (response[in_ptr] == SPECIAL_DELIMITER) // skip the
+															// delimiter
+					in_ptr++;
+			}
+		}
 
-	   if (buf[0]!=0)
-	      return true;
-	   else
-	      return false;
+		if (stop != null)
+			stop[0] = in_ptr;
+
+		if (buf[0] != 0)
+			return true;
+		else
+			return false;
 	}
-	
+
+	// TODO make this not ugly
+	StringBuffer response = new StringBuffer(256);
+
+	void reset_proc(int c) throws IOException {
+		logger.info("Resetting hardware interface.");
+		// case RESET_START:
+		// wait until we either get a prompt or the timer times out
+		long time = System.currentTimeMillis();
+		while (true) {
+			if (input.available() > 0) {
+				if (input.read() == PROMPT)
+					break;
+			} else {
+				if (System.currentTimeMillis() - time > ATZ_TIMEOUT)
+					break;
+			}
+		}
+		send_command("atz"); // reset the chip
+
+		// case RESET_WAIT_RX:
+		byte[] buf = new byte[128];
+		int status = read_comport(buf, ATZ_TIMEOUT); // read comport
+
+		if (status == DATA) // if new data detected in com port buffer
+			response.append(new String(buf)); // append contents of buf to
+												// response
+		else if (status == PROMPT) // if '>' detected
+		{
+			response.append(new String(buf));
+			device = process_response("atz".getBytes(), response.toString()
+					.getBytes());
+			if (device == INTERFACE_ELM323 || device == INTERFACE_ELM327) {
+				logger.info("Waiting for ECU timeout...");
+				RESET_ECU_TIMEOUT();
+				return;
+			} else
+				return;
+		} else if (status == TIMEOUT) // if the timer timed out
+		{
+			logger.warning("Interface was not found");
+			return;
+		}
+	}
+
+	void RESET_ECU_TIMEOUT() throws IOException {
+		// if (serial_time_out) // if the timer timed out
+		// {
+		if (device == INTERFACE_ELM327) {
+			send_command("0100");
+			response = new StringBuffer(256);
+			logger.info("Detecting OBD protocol...");
+			RESET_WAIT_0100();
+			return;
+		} else
+			return;
+		// }
+	}
+
+	void RESET_WAIT_0100() throws IOException {
+		byte[] buf = new byte[128];
+		int status = read_comport(buf, ECU_TIMEOUT);
+
+		if (status == DATA) // if new data detected in com port buffer
+			response.append(new String(buf)); // append contents of buf to
+												// response
+		else if (status == PROMPT) // if we got the prompt
+		{
+			response.append(new String(buf));
+			status = process_response("0100".getBytes(), response.toString()
+					.getBytes());
+
+			if (status == ERR_NO_DATA || status == UNABLE_TO_CONNECT)
+				logger
+						.warning("Protocol could not be detected. Please check connection to the vehicle, and make sure the ignition is ON");
+			else if (status != HEX_DATA)
+				logger.warning("Communication error");
+
+			return;
+		} else if (status == TIMEOUT) // if the timer timed out
+		{
+			logger.warning("Interface not found");
+			return;
+		}
+	}
+
 }
-
