@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="src-test"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/DGISTools"/>
+	<classpathentry kind="lib" path="/usr/share/rxtx-2/lib/RXTXcomm.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/usr/share/doc/rxtx-2.1.7.2-r2/html/api/"/>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/usr/lib64/rxtx-2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="lib" path="/usr/share/hamcrest-core/lib/hamcrest-core.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
