@@ -19,6 +19,7 @@ public class ElmSerial implements ObdSerial {
 	private static final int  EMPTY=    0;
 	private static final int  DATA =    1;
 	private static final int  PROMPT=   2;
+	private static final int  TIMEOUT=   3;
 	
 	private static final byte SPECIAL_DELIMITER='\t';
 	
@@ -193,23 +194,29 @@ public class ElmSerial implements ObdSerial {
 			if (echo_on == true) // if echo is on
 			{
 				send_command("ate0"); // turn off the echo
-				start_serial_timer(AT_TIMEOUT);
 				// wait for chip response or timeout
-				// TODO timeout
-				while ((read_comport(temp_buf) != PROMPT))
-					// && !serial_time_out)
-					;
-				stop_serial_timer();
-				// if (!serial_time_out)
-				// {
-				send_command("atl0"); // turn off linefeeds
-				start_serial_timer(AT_TIMEOUT);
-				// wait for chip response or timeout
-				while ((read_comport(temp_buf) != PROMPT))
-					// && !serial_time_out)
-					;
-				stop_serial_timer();
-				// }
+				// TODO test timeout
+				boolean timedOut=false;
+				while (true){
+					int res = read_comport(temp_buf, AT_TIMEOUT); 
+					if(res == PROMPT) break;
+					if(res == TIMEOUT) {
+						timedOut=true;
+						break;
+					}
+				}
+				if (!timedOut)
+				{
+					send_command("atl0"); // turn off linefeeds
+					while (true){
+						int res = read_comport(temp_buf, AT_TIMEOUT); 
+						if(res == PROMPT) break;
+						if(res == TIMEOUT) {
+							timedOut=true;
+							break;
+						}
+					}
+				}
 			} else
 				// if echo is off
 				msgPos = 0;
@@ -309,7 +316,16 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	@Override
-	public int read_comport(byte[] buf) throws IOException {
+	public int read_comport(byte[] buf, int timeout) throws IOException {
+		if(input.available()==0){
+			try {
+				Thread.sleep(timeout);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			if(input.available()==0)
+				return TIMEOUT;
+		}
 		int len = input.read(buf);
 		if(len==0) return EMPTY;
 		logger.finest("RX: "+new String(buf));
@@ -327,17 +343,6 @@ public class ElmSerial implements ObdSerial {
 		output.write(new byte[]{'\r'});
 	}
 
-	@Override
-	public void start_serial_timer(int delay) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void stop_serial_timer() {
-		// TODO Auto-generated method stub
-
-	}
 
 }
 

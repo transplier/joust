@@ -79,12 +79,5 @@ public class ElmSerialTest {
 	public void testSend_command() {
 	}
 
-	@Test
-	public void testStart_serial_timer() {
-	}
-
-	@Test
-	public void testStop_serial_timer() {
-	}
 
 }

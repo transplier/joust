@@ -38,9 +38,7 @@ public interface ObdSerial {
 	void open_comport() throws PortNotFoundException, PortInUseException, UnsupportedCommOperationException, IOException;
 	void close_comport() throws IOException;
 	void send_command(byte[] command) throws IOException;
-	int read_comport(byte[] buf) throws IOException;
-	void start_serial_timer(int delay);
-	void stop_serial_timer();
+	int read_comport(byte[] buf, int timeout) throws IOException;
 	int process_response(byte[] cmd_sent, byte[] msg_received) throws IOException;
 	//int find_valid_response(char *buf, char *response, const char *filter, char **stop);
 	//const char *get_protocol_string(int interface_type, int protocol_id);
