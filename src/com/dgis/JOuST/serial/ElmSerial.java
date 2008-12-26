@@ -343,6 +343,89 @@ public class ElmSerial implements ObdSerial {
 		output.write(new byte[]{'\r'});
 	}
 
+	//Lifted from Scantool
+	String get_protocol_string(int interface_type, int protocol_id)
+	{
+	   switch (interface_type)
+	   {
+	      case INTERFACE_ELM320:
+	         return "SAE J1850 PWM (41.6 kBit/s)";
+	      case INTERFACE_ELM322:
+	         return "SAE J1850 VPW (10.4 kBit/s)";
+	      case INTERFACE_ELM323:
+	         return "ISO 9141-2 / ISO 14230-4 (KWP2000)";
+	      case INTERFACE_ELM327:
+	         switch (protocol_id)
+	         {
+	            case 0:
+	               return "N/A";
+	            case 1:
+	               return "SAE J1850 PWM (41.6 kBit/s)";
+	            case 2:
+	               return "SAE J1850 VPW (10.4 kBit/s)";
+	            case 3:
+	               return "ISO 9141-2";
+	            case 4:
+	               return "ISO 14230-4 KWP2000 (5-baud init)";
+	            case 5:
+	               return "ISO 14230-4 KWP2000 (fast init)";
+	            case 6:
+	               return "ISO 15765-4 CAN (11-bit ID, 500 kBit/s)";
+	            case 7:
+	               return "ISO 15765-4 CAN (29-bit ID, 500 kBit/s)";
+	            case 8:
+	               return "ISO 15765-4 CAN (11-bit ID, 250 kBit/s)";
+	            case 9:
+	               return "ISO 15765-4 CAN (29-bit ID, 250 kBit/s)";
+	         }
+	   }
+	   
+	   return "unknown";
+	}
 
+	//TODO Find what 'stop' is
+	boolean find_valid_response(byte[] buf, byte[] response, String filter, int[] stop)
+	{
+	   int in_ptr = 0; //in response
+	   int out_ptr = 0; //in buf
+	   buf[0] = 0;
+
+	   String responseString = new String(response);
+	   
+	   while (response[in_ptr] != 0)
+	   {
+		   //TODO check this logic
+	      if (responseString.startsWith(filter))
+	      {
+	         while (response[in_ptr]>0 && response[in_ptr] != SPECIAL_DELIMITER) // copy valid response into buf
+	         {
+	            out_ptr = in_ptr;
+	            in_ptr++;
+	            out_ptr++;
+	         }
+	         out_ptr = 0;  // terminate string
+	         if (response[in_ptr] == SPECIAL_DELIMITER)
+	            in_ptr++;
+	         break;
+	      }
+	      else
+	      {
+	         // skip to the next delimiter
+	         while (response[in_ptr]>0 && response[in_ptr] != SPECIAL_DELIMITER)
+	            in_ptr++;
+	         if (response[in_ptr] == SPECIAL_DELIMITER)  // skip the delimiter
+	            in_ptr++;
+	      }
+	   }
+
+	   if (stop!=null)
+	      stop[0] = in_ptr;
+
+	   if (buf[0]!=0)
+	      return true;
+	   else
+	      return false;
+	}
+	
 }
 
