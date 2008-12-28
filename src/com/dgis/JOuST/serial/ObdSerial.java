@@ -7,27 +7,6 @@ import gnu.io.UnsupportedCommOperationException;
 
 public interface ObdSerial {
 	
-	//process_response return values
-	public static final int HEX_DATA = 0;
-	public static final int BUS_BUSY = 1;
-	public static final int BUS_ERROR = 2;
-	public static final int BUS_INIT_ERROR = 3;
-	public static final int UNABLE_TO_CONNECT = 4;
-	public static final int CAN_ERROR = 5;
-	public static final int DATA_ERROR = 6;
-	public static final int DATA_ERROR2 = 7;
-	public static final int ERR_NO_DATA = 8;
-	public static final int BUFFER_FULL = 9;
-	public static final int SERIAL_ERROR = 10;
-	public static final int UNKNOWN_CMD = 11;
-	public static final int RUBBISH = 12;
-
-	public static final int  INTERFACE_ID=       13;
-	public static final int  INTERFACE_ELM320=   13;
-	public static final int  INTERFACE_ELM322=   14;
-	public static final int  INTERFACE_ELM323=   15;
-	public static final int  INTERFACE_ELM327=   16;
-
 	// timeouts
 	public static final int  OBD_REQUEST_TIMEOUT=   9900;
 	public static final int  ATZ_TIMEOUT=           1500;
@@ -39,14 +18,43 @@ public interface ObdSerial {
 	void close_comport() throws IOException;
 	void send_command(byte[] command) throws IOException;
 	int read_comport(byte[] buf, int timeout) throws IOException;
-	int process_response(byte[] cmd_sent, byte[] msg_received) throws IOException;
+	ELMResponse process_response(byte[] cmd_sent, byte[] msg_received) throws IOException;
 	//int find_valid_response(char *buf, char *response, const char *filter, char **stop);
 	//const char *get_protocol_string(int interface_type, int protocol_id);
 	String getErrorMessage();
+	
+	void reset_proc() throws IOException;
 	
 	public ElmSerialState getState();
 }
 
 enum ElmSerialState {
 	READY, NOT_OPEN
+}
+
+enum ELMResponse{
+	//process_response return values
+	HEX_DATA,
+	BUS_BUSY,
+	BUS_ERROR,
+	BUS_INIT_ERROR,
+	UNABLE_TO_CONNECT,
+	CAN_ERROR,
+	DATA_ERROR,
+	DATA_ERROR2,
+	ERR_NO_DATA,
+	BUFFER_FULL,
+	SERIAL_ERROR,
+	UNKNOWN_CMD,
+	RUBBISH,
+	INTERFACE_ID,
+	INTERFACE_ELM320,
+	INTERFACE_ELM322,
+	INTERFACE_ELM323,
+	INTERFACE_ELM327,
+}
+
+class ResetResult{
+	public ELMResponse interfaceType;
+	//public OBDInterfaceType
 }

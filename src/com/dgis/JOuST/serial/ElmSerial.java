@@ -33,8 +33,8 @@ public class ElmSerial implements ObdSerial {
 	private SerialPort port;
 
 	// ///PROTOCOL SPECIFIC VARIABLES/////
-	private int errorCode = SERIAL_ERROR;
-	private int device;
+	private ELMResponse errorCode = ELMResponse.SERIAL_ERROR;
+	private ELMResponse device;
 
 	public ElmSerial(String serialDevice, int baud) {
 		this.serialDevice = serialDevice;
@@ -134,7 +134,7 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	// Adapted from ScanTool
-	private String getErrorMessage(int error) {
+	private String getErrorMessage(ELMResponse error) {
 		switch (error) {
 		case BUS_ERROR:
 			return "Bus Error: OBDII bus is shorted to Vbatt or Ground.";
@@ -181,7 +181,7 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	@Override
-	public int process_response(byte[] cmd_sent, byte[] msg_received)
+	public ELMResponse process_response(byte[] cmd_sent, byte[] msg_received)
 			throws IOException {
 		int i = 0;
 		int msgPos = 0;
@@ -260,9 +260,9 @@ public class ElmSerial implements ObdSerial {
 					String msg2 = new String(msg_received, msgPos,
 							msg_received.length - msgPos);
 					if (msg2.startsWith("<DATA ERROR"))
-						return DATA_ERROR2;
+						return ELMResponse.DATA_ERROR2;
 					else
-						return RUBBISH;
+						return ELMResponse.RUBBISH;
 				}
 				msg_received[i] = msg_received[msgPos]; // rewrite response
 				boolean isHex = Character.isDigit((char) msg_received[msgPos]);
@@ -286,7 +286,7 @@ public class ElmSerial implements ObdSerial {
 		msg_received[i] = '\0'; // terminate the string
 
 		if (is_hex_num)
-			return HEX_DATA;
+			return ELMResponse.HEX_DATA;
 
 		int nulPos = 0;
 		for (int p = 0; p < msg_received.length; p++)
@@ -297,35 +297,35 @@ public class ElmSerial implements ObdSerial {
 		String msg2 = new String(msg_received, 0, nulPos);
 
 		if (msg2.equals("NODATA"))
-			return ERR_NO_DATA;
+			return ELMResponse.ERR_NO_DATA;
 		if (msg2.contains("UNABLETOCONNECT"))
-			return UNABLE_TO_CONNECT;
+			return ELMResponse.UNABLE_TO_CONNECT;
 		if (msg2.contains("BUSBUSY"))
-			return BUS_BUSY;
+			return ELMResponse.BUS_BUSY;
 		if (msg2.contains("DATAERROR"))
-			return DATA_ERROR;
+			return ELMResponse.DATA_ERROR;
 		if (msg2.contains("BUSERROR") || msg2.contains("FBERROR"))
-			return BUS_ERROR;
+			return ELMResponse.BUS_ERROR;
 		if (msg2.contains("CANERROR"))
-			return CAN_ERROR;
+			return ELMResponse.CAN_ERROR;
 		if (msg2.contains("BUFFERFULL"))
-			return BUFFER_FULL;
+			return ELMResponse.BUFFER_FULL;
 		if (msg2.contains("BUSINIT:ERROR") || msg2.contains("BUSINIT:...ERROR"))
-			return BUS_INIT_ERROR;
+			return ELMResponse.BUS_INIT_ERROR;
 		if (msg2.contains("BUS INIT:") || msg2.contains("BUS INIT:..."))
-			return SERIAL_ERROR;
+			return ELMResponse.SERIAL_ERROR;
 		if (msg2.contains("?"))
-			return UNKNOWN_CMD;
+			return ELMResponse.UNKNOWN_CMD;
 		if (msg2.contains("ELM320"))
-			return INTERFACE_ELM320;
+			return ELMResponse.INTERFACE_ELM320;
 		if (msg2.contains("ELM322"))
-			return INTERFACE_ELM322;
+			return ELMResponse.INTERFACE_ELM322;
 		if (msg2.contains("ELM323"))
-			return INTERFACE_ELM323;
+			return ELMResponse.INTERFACE_ELM323;
 		if (msg2.contains("ELM327"))
-			return INTERFACE_ELM327;
+			return ELMResponse.INTERFACE_ELM327;
 
-		return RUBBISH;
+		return ELMResponse.RUBBISH;
 	}
 
 	@Override
@@ -359,7 +359,7 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	// Lifted from Scantool
-	String get_protocol_string(int interface_type, int protocol_id) {
+	String get_protocol_string(ELMResponse interface_type, int protocol_id) {
 		switch (interface_type) {
 		case INTERFACE_ELM320:
 			return "SAE J1850 PWM (41.6 kBit/s)";
@@ -444,7 +444,7 @@ public class ElmSerial implements ObdSerial {
 	// TODO make this not ugly
 	StringBuffer response = new StringBuffer(256);
 	//Lifted from Scantool.
-	void reset_proc() throws IOException {
+	public void reset_proc() throws IOException {
 		logger.logInfo("Resetting hardware interface.");
 		// case RESET_START:
 		// wait until we either get a prompt or the timer times out
@@ -462,13 +462,12 @@ public class ElmSerial implements ObdSerial {
 
 		// case RESET_WAIT_RX:
 		byte[] buf = new byte[128];
-		int status = read_comport(buf, ATZ_TIMEOUT); // read comport
 		try {
-			Thread.sleep(1000);
+			Thread.sleep(ATZ_TIMEOUT);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		int status = read_comport(buf, ATZ_TIMEOUT); // read comport
 		if (status == DATA) // if new data detected in com port buffer
 			response.append(new String(buf)); // append contents of buf to
 												// response
@@ -477,7 +476,7 @@ public class ElmSerial implements ObdSerial {
 			response.append(new String(buf));
 			device = process_response("atz".getBytes(), response.toString()
 					.getBytes());
-			if (device == INTERFACE_ELM323 || device == INTERFACE_ELM327) {
+			if (device == ELMResponse.INTERFACE_ELM323 || device == ELMResponse.INTERFACE_ELM327) {
 				logger.logInfo("Waiting for ECU timeout...");
 				RESET_ECU_TIMEOUT();
 				return;
@@ -493,7 +492,7 @@ public class ElmSerial implements ObdSerial {
 	void RESET_ECU_TIMEOUT() throws IOException {
 		// if (serial_time_out) // if the timer timed out
 		// {
-		if (device == INTERFACE_ELM327) {
+		if (device == ELMResponse.INTERFACE_ELM327) {
 			send_command("0100");
 			response = new StringBuffer(256);
 			logger.logInfo("Detecting OBD protocol...");
@@ -506,25 +505,25 @@ public class ElmSerial implements ObdSerial {
 
 	void RESET_WAIT_0100() throws IOException {
 		byte[] buf = new byte[128];
-		int status = read_comport(buf, ECU_TIMEOUT);
+		int readStatus = read_comport(buf, ECU_TIMEOUT);
 
-		if (status == DATA) // if new data detected in com port buffer
+		if (readStatus == DATA) // if new data detected in com port buffer
 			response.append(new String(buf)); // append contents of buf to
 												// response
-		else if (status == PROMPT) // if we got the prompt
+		else if (readStatus == PROMPT) // if we got the prompt
 		{
 			response.append(new String(buf));
-			status = process_response("0100".getBytes(), response.toString()
+			ELMResponse status = process_response("0100".getBytes(), response.toString()
 					.getBytes());
 
-			if (status == ERR_NO_DATA || status == UNABLE_TO_CONNECT)
+			if (status == ELMResponse.ERR_NO_DATA || status == ELMResponse.UNABLE_TO_CONNECT)
 				logger
 						.logWarning("Protocol could not be detected. Please check connection to the vehicle, and make sure the ignition is ON");
-			else if (status != HEX_DATA)
+			else if (status != ELMResponse.HEX_DATA)
 				logger.logWarning("Communication error");
 
 			return;
-		} else if (status == TIMEOUT) // if the timer timed out
+		} else if (readStatus == TIMEOUT) // if the timer timed out
 		{
 			logger.logWarning("Interface not found");
 			return;

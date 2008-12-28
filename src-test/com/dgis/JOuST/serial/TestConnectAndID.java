@@ -17,6 +17,7 @@ public class TestConnectAndID {
 			outln("Opening port...");
 			underTest.open_comport();
 			underTest.reset_proc();
+			Thread.sleep(1000);
 			outln("Closing port...");
 			underTest.close_comport();
 		} catch (Exception e){

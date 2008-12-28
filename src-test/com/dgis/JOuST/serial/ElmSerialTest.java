@@ -39,36 +39,36 @@ public class ElmSerialTest {
 		ElmSerial test = new ElmSerial("", 0);
 		byte[] buf = new byte[200];
 		strcpy(buf, "ELM320");
-		int ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.INTERFACE_ELM320));
+		ELMResponse ret = test.process_response(null, buf);
+		assertTrue((ret == ELMResponse.INTERFACE_ELM320));
 
 		strcpy(buf, "ELM323");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.INTERFACE_ELM323));
+		assertTrue((ret == ELMResponse.INTERFACE_ELM323));
 
 		strcpy(buf, "9f");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.HEX_DATA));
+		assertTrue((ret == ELMResponse.HEX_DATA));
 
 		strcpy(buf, "9F");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.HEX_DATA));
+		assertTrue((ret == ELMResponse.HEX_DATA));
 
 		strcpy(buf, "97");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.HEX_DATA));
+		assertTrue((ret == ELMResponse.HEX_DATA));
 
 		strcpy(buf, "AF");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.HEX_DATA));
+		assertTrue((ret == ELMResponse.HEX_DATA));
 
 		strcpy(buf, "FA");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.HEX_DATA));
+		assertTrue((ret == ELMResponse.HEX_DATA));
 
 		strcpy(buf, "<DATA ERROR>");
 		ret = test.process_response(null, buf);
-		assertTrue((ret == ObdSerial.DATA_ERROR2));
+		assertTrue((ret == ELMResponse.DATA_ERROR2));
 	}
 
 	@Test
