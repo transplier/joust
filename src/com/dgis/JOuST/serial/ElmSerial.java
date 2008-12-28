@@ -534,4 +534,8 @@ public class ElmSerial implements ObdSerial {
 		return new ResetResult(ELMResponse.RUBBISH);
 	}
 
+	public ELMResponse getDevice() {
+		return device;
+	}
+
 }
