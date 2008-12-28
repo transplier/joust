@@ -17,13 +17,13 @@ public interface ObdSerial {
 	void open_comport() throws PortNotFoundException, PortInUseException, UnsupportedCommOperationException, IOException;
 	void close_comport() throws IOException;
 	void send_command(byte[] command) throws IOException;
-	int read_comport(byte[] buf, int timeout) throws IOException;
+	ELMReadResult read_comport(byte[] buf, int timeout) throws IOException;
 	ELMResponse process_response(byte[] cmd_sent, byte[] msg_received) throws IOException;
 	//int find_valid_response(char *buf, char *response, const char *filter, char **stop);
 	//const char *get_protocol_string(int interface_type, int protocol_id);
 	String getErrorMessage();
 	
-	void reset_proc() throws IOException;
+	ResetResult reset_proc() throws IOException;
 	
 	public ElmSerialState getState();
 }
@@ -52,9 +52,22 @@ enum ELMResponse{
 	INTERFACE_ELM322,
 	INTERFACE_ELM323,
 	INTERFACE_ELM327,
+	
+	INTERFACE_NOT_FOUND,
+	PROTOCOL_INIT_ERROR
+}
+
+enum ELMReadResult{
+	EMPTY,
+	DATA,
+	PROMPT,
+	TIMEOUT,
 }
 
 class ResetResult{
-	public ELMResponse interfaceType;
+	public ELMResponse response;
 	//public OBDInterfaceType
+	public ResetResult(ELMResponse response) {
+		this.response=response;
+	}
 }

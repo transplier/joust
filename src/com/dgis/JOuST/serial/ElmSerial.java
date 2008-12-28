@@ -16,11 +16,6 @@ import com.dgis.util.Logger;
 
 public class ElmSerial implements ObdSerial {
 
-	private static final int EMPTY = 0;
-	private static final int DATA = 1;
-	private static final int PROMPT = 2;
-	private static final int TIMEOUT = 3;
-
 	private static final byte SPECIAL_DELIMITER = '\t';
 
 	private static Logger logger = Logger.getInstance();
@@ -207,10 +202,10 @@ public class ElmSerial implements ObdSerial {
 				// TODO test timeout
 				boolean timedOut = false;
 				while (true) {
-					int res = read_comport(temp_buf, AT_TIMEOUT);
-					if (res == PROMPT)
+					ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
+					if (res == ELMReadResult.PROMPT)
 						break;
-					if (res == TIMEOUT) {
+					if (res == ELMReadResult.TIMEOUT) {
 						timedOut = true;
 						break;
 					}
@@ -218,10 +213,10 @@ public class ElmSerial implements ObdSerial {
 				if (!timedOut) {
 					send_command("atl0"); // turn off linefeeds
 					while (true) {
-						int res = read_comport(temp_buf, AT_TIMEOUT);
-						if (res == PROMPT)
+						ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
+						if (res == ELMReadResult.PROMPT)
 							break;
-						if (res == TIMEOUT) {
+						if (res == ELMReadResult.TIMEOUT) {
 							timedOut = true;
 							break;
 						}
@@ -329,7 +324,7 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	@Override
-	public int read_comport(byte[] buf, int timeout) throws IOException {
+	public ELMReadResult read_comport(byte[] buf, int timeout) throws IOException {
 		if (input.available() == 0) {
 			try {
 				Thread.sleep(timeout);
@@ -337,18 +332,18 @@ public class ElmSerial implements ObdSerial {
 				e.printStackTrace();
 			}
 			if (input.available() == 0)
-				return TIMEOUT;
+				return ELMReadResult.TIMEOUT;
 		}
 		int len = input.read(buf);
 		if (len == 0)
-			return EMPTY;
+			return ELMReadResult.EMPTY;
 		logger.logVerbose("RX: " + new String(buf));
 		for (int p = 0; p < len; p++) {
 			if (buf[p] == '>') {
-				return PROMPT;
+				return ELMReadResult.PROMPT;
 			}
 		}
-		return DATA;
+		return ELMReadResult.DATA;
 	}
 
 	@Override
@@ -444,14 +439,14 @@ public class ElmSerial implements ObdSerial {
 	// TODO make this not ugly
 	StringBuffer response = new StringBuffer(256);
 	//Lifted from Scantool.
-	public void reset_proc() throws IOException {
+	public ResetResult reset_proc() throws IOException {
 		logger.logInfo("Resetting hardware interface.");
 		// case RESET_START:
 		// wait until we either get a prompt or the timer times out
 		long time = System.currentTimeMillis();
 		while (true) {
 			if (input.available() > 0) {
-				if (input.read() == PROMPT)
+				if (input.read() == '>')
 					break;
 			} else {
 				if (System.currentTimeMillis() - time > ATZ_TIMEOUT)
@@ -467,67 +462,76 @@ public class ElmSerial implements ObdSerial {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		int status = read_comport(buf, ATZ_TIMEOUT); // read comport
-		if (status == DATA) // if new data detected in com port buffer
+		ELMReadResult status = read_comport(buf, ATZ_TIMEOUT); // read comport
+		if (status == ELMReadResult.DATA){ // if new data detected in com port buffer
 			response.append(new String(buf)); // append contents of buf to
 												// response
-		else if (status == PROMPT) // if '>' detected
+			//TODO No idea what to return here.
+			return new ResetResult(ELMResponse.RUBBISH);
+		}
+		else if (status == ELMReadResult.PROMPT) // if '>' detected
 		{
 			response.append(new String(buf));
 			device = process_response("atz".getBytes(), response.toString()
 					.getBytes());
 			if (device == ELMResponse.INTERFACE_ELM323 || device == ELMResponse.INTERFACE_ELM327) {
 				logger.logInfo("Waiting for ECU timeout...");
-				RESET_ECU_TIMEOUT();
-				return;
+				return RESET_ECU_TIMEOUT();
 			} else
-				return;
-		} else if (status == TIMEOUT) // if the timer timed out
+				return new ResetResult(device);
+		} else if (status == ELMReadResult.TIMEOUT) // if the timer timed out
 		{
 			logger.logWarning("Interface was not found");
-			return;
+			return new ResetResult(ELMResponse.INTERFACE_NOT_FOUND);
 		}
+		else 
+			return new ResetResult(ELMResponse.INTERFACE_NOT_FOUND);
 	}
 
-	void RESET_ECU_TIMEOUT() throws IOException {
+	ResetResult RESET_ECU_TIMEOUT() throws IOException {
 		// if (serial_time_out) // if the timer timed out
 		// {
 		if (device == ELMResponse.INTERFACE_ELM327) {
 			send_command("0100");
 			response = new StringBuffer(256);
 			logger.logInfo("Detecting OBD protocol...");
-			RESET_WAIT_0100();
-			return;
-		} else
-			return;
+			return RESET_WAIT_0100();
+		} else //TODO Is this right?
+			return new ResetResult(device);
 		// }
 	}
 
-	void RESET_WAIT_0100() throws IOException {
+	ResetResult RESET_WAIT_0100() throws IOException {
 		byte[] buf = new byte[128];
-		int readStatus = read_comport(buf, ECU_TIMEOUT);
+		ELMReadResult readStatus = read_comport(buf, ECU_TIMEOUT);
 
-		if (readStatus == DATA) // if new data detected in com port buffer
+		if (readStatus == ELMReadResult.DATA){ // if new data detected in com port buffer
 			response.append(new String(buf)); // append contents of buf to
+			//TODO I have no idea what to return here.
+			return new ResetResult(ELMResponse.RUBBISH);
+		}
 												// response
-		else if (readStatus == PROMPT) // if we got the prompt
+		else if (readStatus == ELMReadResult.PROMPT) // if we got the prompt
 		{
 			response.append(new String(buf));
 			ELMResponse status = process_response("0100".getBytes(), response.toString()
 					.getBytes());
 
-			if (status == ELMResponse.ERR_NO_DATA || status == ELMResponse.UNABLE_TO_CONNECT)
+			if (status == ELMResponse.ERR_NO_DATA || status == ELMResponse.UNABLE_TO_CONNECT){
 				logger
 						.logWarning("Protocol could not be detected. Please check connection to the vehicle, and make sure the ignition is ON");
-			else if (status != ELMResponse.HEX_DATA)
+			}
+			else if (status != ELMResponse.HEX_DATA){
 				logger.logWarning("Communication error");
+			}
+			return new ResetResult(status);
 
-			return;
-		} else if (readStatus == TIMEOUT) // if the timer timed out
+		} else if (readStatus == ELMReadResult.TIMEOUT) // if the timer timed out
 		{
 			logger.logWarning("Interface not found");
-			return;
+			return new ResetResult(ELMResponse.INTERFACE_NOT_FOUND);
 		}
+		return new ResetResult(ELMResponse.RUBBISH);
 	}
 
 }
