@@ -7,6 +7,7 @@ public class TestConnectAndID {
 	public static void main(String[] args) {
 		Logger log = Logger.getInstance();
 		log.setPrintStream(System.err);
+		log.setTimestamps(false);
 		log.setLevel(Logger.LEVEL_VERBOSE);
 		log.setShowCaller(true);
 		
@@ -17,7 +18,8 @@ public class TestConnectAndID {
 			outln("Opening port...");
 			underTest.open_comport();
 			outln("Result of reset: "+underTest.reset_proc().response.toString());
-			outln("Detected interface: "+underTest.getDevice().toString());
+			ELMResponse device = underTest.getDevice();
+			outln("Detected interface: "+(device==null?"None":device.toString()));
 			Thread.sleep(1000);
 			outln("Closing port...");
 			underTest.close_comport();

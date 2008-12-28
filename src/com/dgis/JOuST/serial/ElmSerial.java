@@ -72,7 +72,7 @@ public class ElmSerial implements ObdSerial {
 		}
 
 		if (portId == null) {
-			logger.logWarning("Could not find port " + serialDevice);
+			logger.logWarning("Could not open port " + serialDevice);
 			throw new PortNotFoundException(serialDevice);
 		}
 
@@ -125,41 +125,7 @@ public class ElmSerial implements ObdSerial {
 
 	@Override
 	public String getErrorMessage() {
-		return getErrorMessage(errorCode);
-	}
-
-	// Adapted from ScanTool
-	private String getErrorMessage(ELMResponse error) {
-		switch (error) {
-		case BUS_ERROR:
-			return "Bus Error: OBDII bus is shorted to Vbatt or Ground.";
-
-		case BUS_BUSY:
-			return "OBD Bus Busy. Try again.";
-
-		case BUS_INIT_ERROR:
-			return "OBD Bus Init Error. Check connection to the vehicle, make sure the vehicle is OBD-II compliant, and ignition is ON.";
-
-		case UNABLE_TO_CONNECT:
-			return "Unable to connect to OBD bus. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
-
-		case CAN_ERROR:
-			return "CAN Error. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
-
-		case DATA_ERROR:
-		case DATA_ERROR2:
-			return "Data Error: there has been a loss of data. You may have a bad connection to the vehicle, check the cable and try again.";
-
-		case BUFFER_FULL:
-			return "Hardware data buffer overflow.";
-
-		case SERIAL_ERROR:
-		case UNKNOWN_CMD:
-		case RUBBISH:
-			return "Serial Link Error: please check connection between computer and scan tool.";
-		default:
-			return String.format("Unknown error occured: %i", error);
-		}
+		return errorCode.getMessage();
 	}
 
 	@Override
@@ -337,7 +303,7 @@ public class ElmSerial implements ObdSerial {
 		int len = input.read(buf);
 		if (len == 0)
 			return ELMReadResult.EMPTY;
-		logger.logVerbose("RX: " + new String(buf));
+		logger.logSuperfine("RX: " + new String(buf));
 		for (int p = 0; p < len; p++) {
 			if (buf[p] == '>') {
 				return ELMReadResult.PROMPT;
@@ -453,6 +419,7 @@ public class ElmSerial implements ObdSerial {
 					break;
 			}
 		}
+		logger.logVerbose("Sending ATZ.");
 		send_command("atz"); // reset the chip
 
 		// case RESET_WAIT_RX:
@@ -466,49 +433,64 @@ public class ElmSerial implements ObdSerial {
 		if (status == ELMReadResult.DATA){ // if new data detected in com port buffer
 			response.append(new String(buf)); // append contents of buf to
 												// response
+			logger.logWarning("Got rubbish!");
 			//TODO No idea what to return here.
-			return new ResetResult(ELMResponse.RUBBISH);
+			return new ResetResult(ELMResponse.RUBBISH, false);
 		}
 		else if (status == ELMReadResult.PROMPT) // if '>' detected
 		{
+			logger.logVerbose("Got prompt.");
 			response.append(new String(buf));
 			device = process_response("atz".getBytes(), response.toString()
 					.getBytes());
-			if (device == ELMResponse.INTERFACE_ELM323 || device == ELMResponse.INTERFACE_ELM327) {
+			logger.logVerbose("Response: "+device);
+			switch(device){
+			case INTERFACE_ELM323: case INTERFACE_ELM327:
+				logger.logInfo("Found an "+device.toString());
 				logger.logInfo("Waiting for ECU timeout...");
 				return RESET_ECU_TIMEOUT();
-			} else
-				return new ResetResult(device);
+			case INTERFACE_ELM320: case INTERFACE_ELM322:
+				logger.logInfo("Found a "+device.toString());
+				return new ResetResult(device, true);
+			default:
+				logger.logWarning("Unexpected response: "+device.toString());
+				return new ResetResult(device, false);	
+			}
 		} else if (status == ELMReadResult.TIMEOUT) // if the timer timed out
 		{
-			logger.logWarning("Interface was not found");
-			return new ResetResult(ELMResponse.INTERFACE_NOT_FOUND);
+			logger.logWarning("Interface was not found - time out.");
+			return new ResetResult(device, false);
 		}
-		else 
-			return new ResetResult(ELMResponse.INTERFACE_NOT_FOUND);
+		else{
+			logger.logWarning("Unexpected response: "+device.toString());
+			return new ResetResult(device, false);
+		}
 	}
 
 	ResetResult RESET_ECU_TIMEOUT() throws IOException {
 		// if (serial_time_out) // if the timer timed out
 		// {
 		if (device == ELMResponse.INTERFACE_ELM327) {
+			logger.logVerbose("Sending 0100...");
 			send_command("0100");
 			response = new StringBuffer(256);
 			logger.logInfo("Detecting OBD protocol...");
 			return RESET_WAIT_0100();
 		} else //TODO Is this right?
-			return new ResetResult(device);
+			return new ResetResult(device, true);
 		// }
 	}
 
 	ResetResult RESET_WAIT_0100() throws IOException {
 		byte[] buf = new byte[128];
 		ELMReadResult readStatus = read_comport(buf, ECU_TIMEOUT);
-
+		//logger.logVerbose("Response: "+readStatus.toString());
 		if (readStatus == ELMReadResult.DATA){ // if new data detected in com port buffer
-			response.append(new String(buf)); // append contents of buf to
+			String dta = new String(buf);
+			response.append(dta); // append contents of buf to
 			//TODO I have no idea what to return here.
-			return new ResetResult(ELMResponse.RUBBISH);
+			logger.logVerbose("Unexpected data: "+dta);
+			return new ResetResult(ELMResponse.RUBBISH, false);
 		}
 												// response
 		else if (readStatus == ELMReadResult.PROMPT) // if we got the prompt
@@ -516,22 +498,22 @@ public class ElmSerial implements ObdSerial {
 			response.append(new String(buf));
 			ELMResponse status = process_response("0100".getBytes(), response.toString()
 					.getBytes());
-
+			logger.logVerbose("Response: "+status.toString());
 			if (status == ELMResponse.ERR_NO_DATA || status == ELMResponse.UNABLE_TO_CONNECT){
-				logger
-						.logWarning("Protocol could not be detected. Please check connection to the vehicle, and make sure the ignition is ON");
+				return new ResetResult(status, false);
 			}
 			else if (status != ELMResponse.HEX_DATA){
 				logger.logWarning("Communication error");
+				return new ResetResult(status, false);
 			}
-			return new ResetResult(status);
+			return new ResetResult(status, true);
 
 		} else if (readStatus == ELMReadResult.TIMEOUT) // if the timer timed out
 		{
 			logger.logWarning("Interface not found");
-			return new ResetResult(ELMResponse.INTERFACE_NOT_FOUND);
+			return new ResetResult(ELMResponse.ERR_NO_DATA, false);
 		}
-		return new ResetResult(ELMResponse.RUBBISH);
+		return new ResetResult(ELMResponse.RUBBISH, false);
 	}
 
 	public ELMResponse getDevice() {

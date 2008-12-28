@@ -48,13 +48,51 @@ enum ELMResponse{
 	UNKNOWN_CMD,
 	RUBBISH,
 	INTERFACE_ID,
-	INTERFACE_ELM320,
-	INTERFACE_ELM322,
-	INTERFACE_ELM323,
-	INTERFACE_ELM327,
+	INTERFACE_ELM320{public String toString(){return "ELM 320";}},
+	INTERFACE_ELM322{public String toString(){return "ELM 322";}},
+	INTERFACE_ELM323{public String toString(){return "ELM 323";}},
+	INTERFACE_ELM327{public String toString(){return "ELM 327";}},
 	
-	INTERFACE_NOT_FOUND,
-	PROTOCOL_INIT_ERROR
+	PROTOCOL_INIT_ERROR;
+	
+	public String toString(){ return getMessage(); }
+	
+	String getMessage(){
+		return getMessage(this);
+	}
+	// Adapted from ScanTool
+	public static String getMessage(ELMResponse error) {
+		switch (error) {
+		case BUS_ERROR:
+			return "Bus Error: OBDII bus is shorted to Vbatt or Ground.";
+
+		case BUS_BUSY:
+			return "OBD Bus Busy. Try again.";
+
+		case BUS_INIT_ERROR:
+			return "OBD Bus Init Error. Check connection to the vehicle, make sure the vehicle is OBD-II compliant, and ignition is ON.";
+
+		case UNABLE_TO_CONNECT:
+			return "Unable to connect to OBD bus. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
+
+		case CAN_ERROR:
+			return "CAN Error. Check connection to the vehicle. Make sure the vehicle is OBD-II compliant, and ignition is ON.";
+
+		case DATA_ERROR:
+		case DATA_ERROR2:
+			return "Data Error: there has been a loss of data. You may have a bad connection to the vehicle, check the cable and try again.";
+
+		case BUFFER_FULL:
+			return "Hardware data buffer overflow.";
+
+		case SERIAL_ERROR:
+		case UNKNOWN_CMD:
+		case RUBBISH:
+			return "Serial Link Error: please check connection between computer and scan tool.";
+		default:
+			return error.name();
+		}
+	}
 }
 
 enum ELMReadResult{
@@ -65,9 +103,11 @@ enum ELMReadResult{
 }
 
 class ResetResult{
+	public boolean foundDevice;
 	public ELMResponse response;
 	//public OBDInterfaceType
-	public ResetResult(ELMResponse response) {
+	public ResetResult(ELMResponse response, boolean found) {
 		this.response=response;
+		foundDevice=found;
 	}
 }
