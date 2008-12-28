@@ -1,5 +1,6 @@
 package com.dgis.JOuST;
 
+import com.dgis.util.Logger;
 import com.dgis.util.PrettySimpleConfig;
 
 public class OBDInterface {
@@ -11,6 +12,8 @@ public class OBDInterface {
 	
 	protected static final PrettySimpleConfig CONFIG;
 	static{
+		Logger.getInstance().setLevel(Logger.LEVEL_VERBOSE);
+		Logger.getInstance().setPrintStream(System.err);
 		CONFIG = new PrettySimpleConfig(CONFIG_FILENAME);
 	}
 }

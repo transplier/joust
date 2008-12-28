@@ -10,9 +10,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Logger;
 
 import com.dgis.JOuST.OBDInterface;
+import com.dgis.util.Logger;
 
 public class ElmSerial implements ObdSerial {
 
@@ -23,7 +23,8 @@ public class ElmSerial implements ObdSerial {
 
 	private static final byte SPECIAL_DELIMITER = '\t';
 
-	private static Logger logger = Logger.getLogger(ElmSerial.class.getName());
+	private static Logger logger = Logger.getInstance();
+
 	private String serialDevice;
 	private int baud;
 
@@ -44,12 +45,15 @@ public class ElmSerial implements ObdSerial {
 	@Override
 	public void open_comport() throws PortNotFoundException,
 			PortInUseException, UnsupportedCommOperationException, IOException {
-		logger.info("Trying to open " + serialDevice + " @ " + baud + " baud");
+		logger.logInfo("Trying to open " + serialDevice + " @ " + baud + " baud");
 
 		// Get the set of all ports seen by RXTX
 		List<CommPortIdentifier> portIdentifiers = Collections
 				.list(CommPortIdentifier.getPortIdentifiers());
-		logger.info("Found the following ports:" + portIdentifiers.toString());
+		StringBuffer found = new StringBuffer();
+		for(CommPortIdentifier id : portIdentifiers)
+			found.append(id.getName()+" ");
+		logger.logInfo("Found the following ports:" + found.toString());
 
 		// Sift through them to find the right one.
 		CommPortIdentifier portId = null; // will be set if port found
@@ -64,7 +68,7 @@ public class ElmSerial implements ObdSerial {
 
 				} else {
 					// TODO Make a config option to ignore wrong type
-					logger.warning(serialDevice
+					logger.logWarning(serialDevice
 							+ " does not seem to be a serial device (type: "
 							+ pid.getPortType() + "), ignoring.");
 				}
@@ -73,19 +77,19 @@ public class ElmSerial implements ObdSerial {
 		}
 
 		if (portId == null) {
-			logger.warning("Could not find port " + serialDevice);
+			logger.logWarning("Could not find port " + serialDevice);
 			throw new PortNotFoundException(serialDevice);
 		}
 
 		// We now have a valid portId.
 
 		// Try to lock port
-		logger.finer("Trying to get exclusive access to " + serialDevice);
+		logger.logVerbose("Trying to get exclusive access to " + serialDevice);
 		try {
 			port = (SerialPort) portId.open(OBDInterface.APPLICATION_NAME,
 					10000 // Wait max. 10 sec. to acquire port
 					);
-			logger.finer("Access granted.");
+			logger.logVerbose("Access granted.");
 
 			try {
 				// Locked OK. Try setting parameters and opening port.
@@ -96,20 +100,21 @@ public class ElmSerial implements ObdSerial {
 					input = port.getInputStream();
 					output = port.getOutputStream();
 					// WE ARE DONE.
+					logger.logInfo(serialDevice + " opened.");
 					return;
 				} catch (IOException e) {
-					logger.warning("Cannot open port: "
+					logger.logWarning("Cannot open port: "
 							+ e.getLocalizedMessage());
 					throw e;
 				}
 
 			} catch (UnsupportedCommOperationException e) {
-				logger.warning(serialDevice
+				logger.logWarning(serialDevice
 						+ " does not seem to support 8N1 @ " + baud);
 				throw e;
 			}
 		} catch (PortInUseException inUseException) {
-			logger.warning(serialDevice + " seems to be in use by "
+			logger.logWarning(serialDevice + " seems to be in use by "
 					+ inUseException.currentOwner);
 			throw inUseException;
 		}
@@ -117,7 +122,7 @@ public class ElmSerial implements ObdSerial {
 
 	@Override
 	public void close_comport() throws IOException {
-		logger.info("Closing " + port.getName());
+		logger.logInfo("Closing " + port.getName());
 		input.close();
 		output.close();
 		port.close();
@@ -185,7 +190,7 @@ public class ElmSerial implements ObdSerial {
 		byte[] temp_buf = new byte[80];
 
 		if (cmd_sent != null) {
-			for (i = 0; cmd_sent[i] != 0; i++) {
+			for (i = 0; i<cmd_sent.length && cmd_sent[i] != 0; i++) {
 				if (cmd_sent[i] != msg_received[msgPos]) // if the characters
 				// are not the same,
 				{
@@ -234,12 +239,12 @@ public class ElmSerial implements ObdSerial {
 		// Pull out string
 		String msg = new String(msg_received, msgPos, msg_received.length
 				- msgPos);
-		if (msg.equals("SEARCHING..."))
-			msg += 13;
-		else if (msg.equals("BUS INIT: OK"))
-			msg += 13;
-		else if (msg.equals("BUS INIT: ...OK"))
-			msg += 16;
+		if (msg.contains("SEARCHING..."))
+			msgPos += 13;
+		else if (msg.contains("BUS INIT: OK"))
+			msgPos += 13;
+		else if (msg.contains("BUS INIT: ...OK"))
+			msgPos += 16;
 
 		// Loop until null encountered
 		for (i = 0; msg_received[msgPos] > 0 && msgPos < msg_received.length; msgPos++) // loop
@@ -337,8 +342,8 @@ public class ElmSerial implements ObdSerial {
 		int len = input.read(buf);
 		if (len == 0)
 			return EMPTY;
-		logger.finest("RX: " + new String(buf));
-		for (int p = 0; p > len; p++) {
+		logger.logVerbose("RX: " + new String(buf));
+		for (int p = 0; p < len; p++) {
 			if (buf[p] == '>') {
 				return PROMPT;
 			}
@@ -350,6 +355,7 @@ public class ElmSerial implements ObdSerial {
 	public void send_command(byte[] command) throws IOException {
 		output.write(command);
 		output.write(new byte[] { '\r' });
+		output.flush();
 	}
 
 	// Lifted from Scantool
@@ -437,9 +443,9 @@ public class ElmSerial implements ObdSerial {
 
 	// TODO make this not ugly
 	StringBuffer response = new StringBuffer(256);
-
-	void reset_proc(int c) throws IOException {
-		logger.info("Resetting hardware interface.");
+	//Lifted from Scantool.
+	void reset_proc() throws IOException {
+		logger.logInfo("Resetting hardware interface.");
 		// case RESET_START:
 		// wait until we either get a prompt or the timer times out
 		long time = System.currentTimeMillis();
@@ -457,7 +463,12 @@ public class ElmSerial implements ObdSerial {
 		// case RESET_WAIT_RX:
 		byte[] buf = new byte[128];
 		int status = read_comport(buf, ATZ_TIMEOUT); // read comport
-
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		if (status == DATA) // if new data detected in com port buffer
 			response.append(new String(buf)); // append contents of buf to
 												// response
@@ -467,14 +478,14 @@ public class ElmSerial implements ObdSerial {
 			device = process_response("atz".getBytes(), response.toString()
 					.getBytes());
 			if (device == INTERFACE_ELM323 || device == INTERFACE_ELM327) {
-				logger.info("Waiting for ECU timeout...");
+				logger.logInfo("Waiting for ECU timeout...");
 				RESET_ECU_TIMEOUT();
 				return;
 			} else
 				return;
 		} else if (status == TIMEOUT) // if the timer timed out
 		{
-			logger.warning("Interface was not found");
+			logger.logWarning("Interface was not found");
 			return;
 		}
 	}
@@ -485,7 +496,7 @@ public class ElmSerial implements ObdSerial {
 		if (device == INTERFACE_ELM327) {
 			send_command("0100");
 			response = new StringBuffer(256);
-			logger.info("Detecting OBD protocol...");
+			logger.logInfo("Detecting OBD protocol...");
 			RESET_WAIT_0100();
 			return;
 		} else
@@ -508,14 +519,14 @@ public class ElmSerial implements ObdSerial {
 
 			if (status == ERR_NO_DATA || status == UNABLE_TO_CONNECT)
 				logger
-						.warning("Protocol could not be detected. Please check connection to the vehicle, and make sure the ignition is ON");
+						.logWarning("Protocol could not be detected. Please check connection to the vehicle, and make sure the ignition is ON");
 			else if (status != HEX_DATA)
-				logger.warning("Communication error");
+				logger.logWarning("Communication error");
 
 			return;
 		} else if (status == TIMEOUT) // if the timer timed out
 		{
-			logger.warning("Interface not found");
+			logger.logWarning("Interface not found");
 			return;
 		}
 	}
