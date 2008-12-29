@@ -72,7 +72,7 @@ public class ElmSerial implements ObdSerial {
 		}
 
 		if (portId == null) {
-			logger.logWarning("Could not open port " + serialDevice);
+			logger.logWarning("Could not find usable port " + serialDevice);
 			throw new PortNotFoundException(serialDevice);
 		}
 
