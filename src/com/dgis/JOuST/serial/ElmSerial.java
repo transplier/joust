@@ -145,148 +145,132 @@ public class ElmSerial implements ObdSerial {
 	public ELMResponse process_response(byte[] cmd_sent, byte[] msg_received)
 			throws IOException {
 		int i = 0;
-		int msgPos = 0;
-		boolean echo_on = true; // echo status
-		boolean is_hex_num = true;
-		byte[] temp_buf = new byte[80];
-
+		int msgPos = 0; //Start of the message. May not be 0 if echo is on.
 		if (cmd_sent != null) {
+			//See if msg_received starts with cmd_sent.
+			//If so, we know echo is on, and we disable it.
+			//Also keep track of where the start of the reply
+			//should be (msgPos).
+			boolean echoOn = true;
 			for (i = 0; i<cmd_sent.length && cmd_sent[i] != 0; i++) {
-				if (cmd_sent[i] != msg_received[msgPos]) // if the characters
-				// are not the same,
+				if (cmd_sent[i] != msg_received[msgPos]) // if the characters are not the same
 				{
-					echo_on = false; // say that echo is off
-					break; // break out of the loop
+					echoOn = false;
+					break;
 				}
 				msgPos++;
 			}
 
-			if (echo_on == true) // if echo is on
-			{
-				send_command("ate0"); // turn off the echo
-				// wait for chip response or timeout
-				// TODO test timeout
-				boolean timedOut = false;
-				while (true) {
-					ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
-					if (res == ELMReadResult.PROMPT)
-						break;
-					if (res == ELMReadResult.TIMEOUT) {
-						timedOut = true;
-						break;
-					}
-				}
-				if (!timedOut) {
-					send_command("atl0"); // turn off linefeeds
-					while (true) {
-						ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
-						if (res == ELMReadResult.PROMPT)
-							break;
-						if (res == ELMReadResult.TIMEOUT) {
-							timedOut = true;
-							break;
-						}
-					}
-				}
-			} else
-				// if echo is off
+			if (echoOn)
+				turnOffEcho();
+			else
 				msgPos = 0;
 		}
 
-		// Find start of string
+		// Strip off nulls and special characters at start of reply.
 		while (msg_received[msgPos] > 0 && (msg_received[msgPos] <= ' '))
 			msgPos++;
 
-		// Pull out string
-		String msg = new String(msg_received, msgPos, msg_received.length
-				- msgPos);
-		if (msg.contains("SEARCHING..."))
-			msgPos += 13;
-		else if (msg.contains("BUS INIT: OK"))
-			msgPos += 13;
-		else if (msg.contains("BUS INIT: ...OK"))
-			msgPos += 16;
-
-		// Loop until null encountered
-		for (i = 0; msg_received[msgPos] > 0 && msgPos < msg_received.length; msgPos++) // loop
-																						// to
-																						// copy
-																						// data
-		{
-			if (msg_received[msgPos] > ' ') // if the character is not a special
-			// character or space
-			{
-				if (msg_received[msgPos] == '<') // Detect <DATA_ERROR
-				{
-					String msg2 = new String(msg_received, msgPos,
-							msg_received.length - msgPos);
-					if (msg2.startsWith("<DATA ERROR"))
-						return ELMResponse.DATA_ERROR2;
-					else
-						return ELMResponse.RUBBISH;
-				}
-				msg_received[i] = msg_received[msgPos]; // rewrite response
-				boolean isHex = Character.isDigit((char) msg_received[msgPos]);
-				isHex |= (msg_received[msgPos] >= 'A' && msg_received[msgPos] <= 'F')
-						|| (msg_received[msgPos] >= 'a' && msg_received[msgPos] <= 'f');
-				if (!isHex && msg_received[msgPos] != ':')
-					is_hex_num = false;
-				i++;
-			} else if (((msg_received[msgPos] == '\n') || (msg_received[msgPos] == '\r'))
-					&& (msg_received[i - 1] != SPECIAL_DELIMITER)) // if the
-				// character
-				// is a CR
-				// or LF
-				msg_received[i++] = SPECIAL_DELIMITER; // replace CR with
-			// SPECIAL_DELIMITER
+		// Pull out reply string.
+		StringBuffer msgBuf = new StringBuffer(msg_received.length-msgPos);
+		//Accept characters until null hit.
+		for(int j=msgPos; j<msg_received.length; j++){
+			if(msg_received[j]==0) break;
+			msgBuf.append((char)msg_received[j]);
 		}
-
-		if (i > 0)
-			if (msg_received[i - 1] == SPECIAL_DELIMITER)
-				i--;
-		msg_received[i] = '\0'; // terminate the string
-
-		if (is_hex_num)
-			return ELMResponse.HEX_DATA;
-
-		int nulPos = 0;
-		for (int p = 0; p < msg_received.length; p++)
-			if (msg_received[p] == 0) {
-				nulPos = p;
+		String msg = msgBuf.toString();
+		
+		//Collapse whitespace & prompt
+		msg = msg.replaceAll("\\s|>", "");
+		
+		//Get rid of useless bits...
+		if (msg.startsWith("SEARCHING..."))
+			msg=msg.substring(12);
+		else if (msg.startsWith("BUSINIT:OK"))
+			msg=msg.substring(12);
+		else if (msg.startsWith("BUSINIT:...OK"))
+			msg=msg.substring(15);
+		
+		//Check for <DATA ERROR>
+		int indexOfLT = msg.indexOf('<');
+		if(indexOfLT>=0){
+			if(msg.startsWith("<DATAERROR", indexOfLT)) //Remember, spaces are gone, as is >
+				return ELMResponse.DATA_ERROR2;
+			else
+				return ELMResponse.RUBBISH;
+		}
+		
+		//Check for hex number.
+		boolean isHex = true;
+		//Check every character for non-hexness
+		for(char c : msg.toCharArray()){
+			if(!(Character.isDigit(c) || (c>='a' && c<='f') || (c>='A' && c <= 'F'))){
+				isHex=false;
 				break;
 			}
-		String msg2 = new String(msg_received, 0, nulPos);
-
-		if (msg2.equals("NODATA"))
+		}
+		if(isHex) return ELMResponse.HEX_DATA;
+		
+		if (msg.contains("NODATA"))
 			return ELMResponse.ERR_NO_DATA;
-		if (msg2.contains("UNABLETOCONNECT"))
+		if (msg.contains("UNABLETOCONNECT"))
 			return ELMResponse.UNABLE_TO_CONNECT;
-		if (msg2.contains("BUSBUSY"))
+		if (msg.contains("BUSBUSY"))
 			return ELMResponse.BUS_BUSY;
-		if (msg2.contains("DATAERROR"))
+		if (msg.contains("DATAERROR"))
 			return ELMResponse.DATA_ERROR;
-		if (msg2.contains("BUSERROR") || msg2.contains("FBERROR"))
+		if (msg.contains("BUSERROR") || msg.contains("FBERROR"))
 			return ELMResponse.BUS_ERROR;
-		if (msg2.contains("CANERROR"))
+		if (msg.contains("CANERROR"))
 			return ELMResponse.CAN_ERROR;
-		if (msg2.contains("BUFFERFULL"))
+		if (msg.contains("BUFFERFULL"))
 			return ELMResponse.BUFFER_FULL;
-		if (msg2.contains("BUSINIT:ERROR") || msg2.contains("BUSINIT:...ERROR"))
+		if (msg.contains("BUSINIT:ERROR") || msg.contains("BUSINIT:...ERROR"))
 			return ELMResponse.BUS_INIT_ERROR;
-		if (msg2.contains("BUS INIT:") || msg2.contains("BUS INIT:..."))
+		if (msg.contains("BUSINIT:") || msg.contains("BUSINIT:..."))
 			return ELMResponse.SERIAL_ERROR;
-		if (msg2.contains("?"))
+		if (msg.contains("?"))
 			return ELMResponse.UNKNOWN_CMD;
-		if (msg2.contains("ELM320"))
+		if (msg.contains("ELM320"))
 			return ELMResponse.INTERFACE_ELM320;
-		if (msg2.contains("ELM322"))
+		if (msg.contains("ELM322"))
 			return ELMResponse.INTERFACE_ELM322;
-		if (msg2.contains("ELM323"))
+		if (msg.contains("ELM323"))
 			return ELMResponse.INTERFACE_ELM323;
-		if (msg2.contains("ELM327"))
+		if (msg.contains("ELM327"))
 			return ELMResponse.INTERFACE_ELM327;
 
+		logger.logWarning("Warning: Discarded apparent noise: |"+msg+"|");
 		return ELMResponse.RUBBISH;
+	}
+
+	private void turnOffEcho() throws IOException {
+		byte[] temp_buf = new byte[80];
+		send_command("ate0"); // turn off the echo
+		// wait for chip response or timeout
+		// TODO test timeout
+		boolean timedOut = false;
+		while (true) {
+			ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
+			if (res == ELMReadResult.PROMPT)
+				break;
+			if (res == ELMReadResult.TIMEOUT) {
+				timedOut = true;
+				break;
+			}
+		}
+		if (!timedOut) {
+			send_command("atl0"); // turn off linefeeds
+			while (true) {
+				ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
+				if (res == ELMReadResult.PROMPT)
+					break;
+				if (res == ELMReadResult.TIMEOUT) {
+					timedOut = true;
+					break;
+				}
+			}
+		}		
 	}
 
 	@Override

@@ -42,7 +42,7 @@ public class ElmSerialTest {
 		ELMResponse ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.INTERFACE_ELM320));
 
-		strcpy(buf, "ELM323");
+		strcpy(buf, "SEARCHING...ELM323");
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.INTERFACE_ELM323));
 
@@ -50,22 +50,23 @@ public class ElmSerialTest {
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.HEX_DATA));
 
-		strcpy(buf, "9F");
+		strcpy(buf, "BUS INIT: ...OK\n\r9F\t\t\r\n");
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.HEX_DATA));
 
-		strcpy(buf, "97");
+		strcpy(buf, "97  ");
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.HEX_DATA));
 
-		strcpy(buf, "AF");
+		strcpy(buf, " AF");
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.HEX_DATA));
 
 		strcpy(buf, "FA");
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.HEX_DATA));
-
+		
+		
 		buf = new byte[] { 52, 49, 32, 48, 48, 32, 57, 56, 32, 49, 56, 32, 56,
 				48, 32, 48, 49, 32, 13, 52, 49, 32, 48, 48, 32, 66, 69, 32, 51,
 				70, 32, 69, 56, 32, 49, 51, 32, 13, 13, 62, 0, 0, 0, 0, 0, 0,
@@ -73,12 +74,29 @@ public class ElmSerialTest {
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-		ret = test.process_response("0100".getBytes(), buf);
+		byte[] req = "0100".getBytes();
+		System.err.println("\n");
+		ret = test.process_response(req, buf);
 		assertTrue((ret == ELMResponse.HEX_DATA));
+		
+		buf = new byte[] { 52, 120, 32, 48, 48, 32, 57, 56, 32, 49, 56, 32, 56,
+				48, 32, 48, 49, 32, 13, 52, 49, 32, 48, 48, 32, 66, 69, 32, 51,
+				70, 32, 69, 56, 32, 49, 51, 32, 13, 13, 62, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+		System.err.println("\n");
+		ret = test.process_response(req, buf);
+		assertTrue((ret == ELMResponse.RUBBISH));
 
 		strcpy(buf, "<DATA ERROR>");
 		ret = test.process_response(null, buf);
 		assertTrue((ret == ELMResponse.DATA_ERROR2));
+		
+		strcpy(buf, ">\n\rUNABLETOCONNECT\n");
+		ret = test.process_response(null, buf);
+		assertTrue((ret == ELMResponse.UNABLE_TO_CONNECT));
 	}
 
 	@Test
