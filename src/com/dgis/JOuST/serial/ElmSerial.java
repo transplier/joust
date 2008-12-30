@@ -514,11 +514,7 @@ public class ElmSerial implements ObdSerial {
 			ELMReadResult response_status = ELMReadResult.DATA;
 			while (true) {
 				response_status = read_comport(buf, OBD_REQUEST_TIMEOUT); // read comport
-				//Find end of string.
-				int off = 0;
-				for (int i = 0; i < buf.length && buf[0] != 0; i++)
-					off = i;
-				String r = new String(buf, off, buf.length - off);
+				String r = bytesToString(buf);
 				response.append(r);
 				if (response_status == ELMReadResult.DATA) // if data detected in com port buffer
 				{
@@ -590,15 +586,25 @@ public class ElmSerial implements ObdSerial {
 		   if (endOfResp != null)
 			   endOfResp[0] = in_ptr;
 
-		   int off = 0;
-			for (int i = 0; i < buf.length && buf[0] != 0; i++)
-				off = i;
-			String r = new String(buf, off, buf.length - off);
+		   String r = bytesToString(buf);
 		   
 		   if (r.length()>0)
 		      return true;
 		   else
 		      return false;
+	}
+	
+	/**
+	 * Converts a null-terminated array of bytes to a string.
+	 * @param buf
+	 * @return
+	 */
+	static String bytesToString(byte[] buf){
+		if(buf[0]==0) return "";
+		int off = 0;
+		for (int i = 0; i < buf.length && buf[i] != 0; i++)
+			off = i;
+		return new String(buf, 0, off+1);
 	}
 }
                  

@@ -106,6 +106,20 @@ public class ElmSerialTest {
 	@Test
 	public void testSend_command() {
 	}
+	
+	@Test
+	public void testBytesToString() {
+		byte[] a = "Hello".getBytes();
+		assertTrue(ElmSerial.bytesToString(a).equals("Hello"));
+		
+		a = "Hello\0".getBytes();
+		assertTrue(ElmSerial.bytesToString(a).equals("Hello"));
+		
+		a = "Hell\0o\0".getBytes();
+		assertTrue(ElmSerial.bytesToString(a).equals("Hell"));
+		a = "\0Hell\0o\0".getBytes();
+		assertTrue(ElmSerial.bytesToString(a).equals(""));
+	}
 
 
 }
