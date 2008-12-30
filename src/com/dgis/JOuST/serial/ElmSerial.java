@@ -548,54 +548,54 @@ public class ElmSerial implements ObdSerial {
 		}
 	}
 
-	//Lifted from ScanTool
-	//TODO Convert this to Java style
+	// Lifted from ScanTool
+	// TODO Convert this to Java style
 	@Override
-	public boolean find_valid_response(byte[] buf, String response, String filter,
-			int[] endOfResp) {
-		int in_ptr = 0;  //in response
-		int out_ptr = 0; //in buf
+	public boolean find_valid_response(byte[] buf, String response,
+			String filter, int[] endOfResp) {
+		int in_ptr = 0; // in response
+		int out_ptr = 0; // in buf
 
 		buf[0] = 0;
 
-		   while (in_ptr<response.length())
-		   {
-		      if (response.startsWith(filter))
-		      {
-		         while (in_ptr<response.length() && response.charAt(in_ptr) != SPECIAL_DELIMITER) // copy valid response into buf
-		         {
-		            out_ptr = in_ptr;
-		            in_ptr++;
-		            out_ptr++;
-		         }
-		         out_ptr = 0;  // terminate string
-		         if (response.charAt(in_ptr) == SPECIAL_DELIMITER)
-		            in_ptr++;
-		         break;
-		      }
-		      else
-		      {
-		         // skip to the next delimiter
-		         while (in_ptr<response.length() && response.charAt(in_ptr) != SPECIAL_DELIMITER)
-		            in_ptr++;
-		         if (response.charAt(in_ptr) != SPECIAL_DELIMITER)  // skip the delimiter
-		            in_ptr++;
-		      }
-		   }
+		while (in_ptr < response.length()) {
+			if (response.startsWith(filter, in_ptr)) {
+				while (in_ptr < response.length()
+						&& response.charAt(in_ptr) != SPECIAL_DELIMITER)															// buf
+				{
+					buf[out_ptr] = (byte)response.charAt(in_ptr);
+					in_ptr++;
+					out_ptr++;
+				}
+				buf[out_ptr] = 0; // terminate string
+				if (response.charAt(in_ptr) == SPECIAL_DELIMITER)
+					in_ptr++;
+				break;
+			} else {
+				// skip to the next delimiter
+				while (in_ptr < response.length()
+						&& response.charAt(in_ptr) != SPECIAL_DELIMITER)
+					in_ptr++;
+				if (response.charAt(in_ptr) != SPECIAL_DELIMITER) // skip the
+																	// delimiter
+					in_ptr++;
+			}
+		}
 
-		   if (endOfResp != null)
-			   endOfResp[0] = in_ptr;
+		if (endOfResp != null)
+			endOfResp[0] = in_ptr;
 
-		   String r = bytesToString(buf);
-		   
-		   if (r.length()>0)
-		      return true;
-		   else
-		      return false;
+		String r = bytesToString(buf);
+
+		if (r.length() > 0)
+			return true;
+		else
+			return false;
 	}
 	
 	/**
 	 * Converts a null-terminated array of bytes to a string.
+	 * 
 	 * @param buf
 	 * @return
 	 */
