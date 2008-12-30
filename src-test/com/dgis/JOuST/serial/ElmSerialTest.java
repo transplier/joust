@@ -121,5 +121,15 @@ public class ElmSerialTest {
 		assertTrue(ElmSerial.bytesToString(a).equals(""));
 	}
 
+	@Test
+	public void testFind_valid_response(){
+		byte[] buf = new byte[255];
+		int[] end = new int[1];
+		
+		boolean res = ElmSerial.find_valid_response(buf, "41 11 25 \r41 11 25 \r\r>", "4111", end);
+		assertTrue(res);
+		String r = ElmSerial.bytesToString(buf);
+		assertTrue(r.equals("411125"));
+	}
 
 }

@@ -19,7 +19,6 @@ public interface ObdSerial {
 	void send_command(byte[] command) throws IOException;
 	ELMReadResult read_comport(byte[] buf, int timeout) throws IOException;
 	ELMResponse process_response(byte[] cmd_sent, byte[] msg_received) throws IOException;
-	boolean find_valid_response(byte[] buf, String response, String filter, int[] endOfResp);
 	//const char *get_protocol_string(int interface_type, int protocol_id);
 	String getErrorMessage();
 	

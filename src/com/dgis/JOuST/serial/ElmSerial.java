@@ -16,7 +16,7 @@ import com.dgis.util.Logger;
 
 public class ElmSerial implements ObdSerial {
 
-	private static final byte SPECIAL_DELIMITER = '\t';
+	private static final byte SPECIAL_DELIMITER = '\r';
 
 	private static Logger logger = Logger.getInstance();
 
@@ -527,7 +527,7 @@ public class ElmSerial implements ObdSerial {
 
 					if (response_type == ELMResponse.HEX_DATA) // HEX_DATA received
 					{
-						cmd = String.format("01%X", pid);
+						cmd = String.format("41%X", pid);
 						if (find_valid_response(buf, response.toString(), cmd,
 								null)) {
 							buf[4 + numBytes* 2] = 0;  // solves problem where response is padded with zeroes (i.e., '41 05 7C 00 00 00')
@@ -559,19 +559,21 @@ public class ElmSerial implements ObdSerial {
 
 	// Lifted from ScanTool
 	// TODO Convert this to Java style
-	@Override
-	public boolean find_valid_response(byte[] buf, String response,
+	public static boolean find_valid_response(byte[] buf, String response,
 			String filter, int[] endOfResp) {
 		int in_ptr = 0; // in response
 		int out_ptr = 0; // in buf
 
 		buf[0] = 0;
 
+		response = response.replaceAll(" ", "");
+		
 		while (in_ptr < response.length()) {
 			if (response.startsWith(filter, in_ptr)) {
 				while (in_ptr < response.length()
 						&& response.charAt(in_ptr) != SPECIAL_DELIMITER)															// buf
 				{
+					char x = response.charAt(in_ptr);
 					buf[out_ptr] = (byte)response.charAt(in_ptr);
 					in_ptr++;
 					out_ptr++;
