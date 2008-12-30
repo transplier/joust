@@ -21,11 +21,14 @@ public class TestConnectAndID {
 			ELMResponse device = underTest.getDevice();
 			outln("Detected interface: "+(device==null?"None":device.toString()));
 			//Try getting throttle position as a test.
+			long startTime = System.currentTimeMillis();
+			int count=0;
 			while(true){
 				byte[] result = underTest.request_pid(0x11, 1);
+				count++;
 				float rawPos = (float)Integer.valueOf(ElmSerial.bytesToString(result).substring(4), 16);
 				rawPos*=100f/255f;
-				outln("Throttle position: "+rawPos);
+				outln("Throttle position: "+rawPos+" Rate: "+count/((System.currentTimeMillis()-startTime)/1000.));
 				if(rawPos>80) break;
 			}
 			outln("Closing port...");
