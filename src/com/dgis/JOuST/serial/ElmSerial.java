@@ -504,4 +504,102 @@ public class ElmSerial implements ObdSerial {
 		return device;
 	}
 
+	@Override
+	public byte[] request_pid(int pid, int numBytes) throws IOException {
+		if (getState() == ElmSerialState.READY) {
+			String cmd = String.format("01%X", pid);
+			send_command(cmd); // send command for that particular sensor
+			byte[] buf = new byte[256];
+			StringBuffer response = new StringBuffer(255);
+			ELMReadResult response_status = ELMReadResult.DATA;
+			while (true) {
+				response_status = read_comport(buf, OBD_REQUEST_TIMEOUT); // read comport
+				//Find end of string.
+				int off = 0;
+				for (int i = 0; i < buf.length && buf[0] != 0; i++)
+					off = i;
+				String r = new String(buf, off, buf.length - off);
+				response.append(r);
+				if (response_status == ELMReadResult.DATA) // if data detected in com port buffer
+				{
+					continue;
+				} else if (response_status == ELMReadResult.PROMPT) // if '>' detected
+				{
+					ELMResponse response_type = process_response(
+							cmd.getBytes(), response.toString().getBytes());
+
+					if (response_type == ELMResponse.HEX_DATA) // HEX_DATA received
+					{
+						cmd = String.format("01%X", pid);
+						if (find_valid_response(buf, response.toString(), cmd,
+								null)) {
+							buf[4 + numBytes* 2] = 0;  // solves problem where response is padded with zeroes (i.e., '41 05 7C 00 00 00')
+							//TODO calculate value here as per
+							//sensor->formula((int)strtol(buf + 4, NULL, 16), buf); //plug the value into formula
+							return buf;
+						} else {
+							//TODO log something- got nothing back.
+							return null;
+						}
+					}
+				} else {
+					//TODO log something.
+					return null;
+				}
+			}
+		} else {
+			return null;
+		}
+	}
+
+	//Lifted from ScanTool
+	//TODO Convert this to Java style
+	@Override
+	public boolean find_valid_response(byte[] buf, String response, String filter,
+			int[] endOfResp) {
+		int in_ptr = 0;  //in response
+		int out_ptr = 0; //in buf
+
+		buf[0] = 0;
+
+		   while (in_ptr<response.length())
+		   {
+		      if (response.startsWith(filter))
+		      {
+		         while (in_ptr<response.length() && response.charAt(in_ptr) != SPECIAL_DELIMITER) // copy valid response into buf
+		         {
+		            out_ptr = in_ptr;
+		            in_ptr++;
+		            out_ptr++;
+		         }
+		         out_ptr = 0;  // terminate string
+		         if (response.charAt(in_ptr) == SPECIAL_DELIMITER)
+		            in_ptr++;
+		         break;
+		      }
+		      else
+		      {
+		         // skip to the next delimiter
+		         while (in_ptr<response.length() && response.charAt(in_ptr) != SPECIAL_DELIMITER)
+		            in_ptr++;
+		         if (response.charAt(in_ptr) != SPECIAL_DELIMITER)  // skip the delimiter
+		            in_ptr++;
+		      }
+		   }
+
+		   if (endOfResp != null)
+			   endOfResp[0] = in_ptr;
+
+		   int off = 0;
+			for (int i = 0; i < buf.length && buf[0] != 0; i++)
+				off = i;
+			String r = new String(buf, off, buf.length - off);
+		   
+		   if (r.length()>0)
+		      return true;
+		   else
+		      return false;
+	}
 }
+                 
+                 
