@@ -512,6 +512,7 @@ public class ElmSerial implements ObdSerial {
 			byte[] buf = new byte[256];
 			StringBuffer response = new StringBuffer(255);
 			ELMReadResult response_status = ELMReadResult.DATA;
+			long start_time = System.currentTimeMillis();
 			while (true) {
 				response_status = read_comport(buf, OBD_REQUEST_TIMEOUT); // read comport
 				String r = bytesToString(buf);
@@ -537,6 +538,14 @@ public class ElmSerial implements ObdSerial {
 							//TODO log something- got nothing back.
 							return null;
 						}
+					}
+				} else if(response_status == ELMReadResult.EMPTY){
+					if(System.currentTimeMillis() - start_time > OBD_REQUEST_TIMEOUT){
+						//TODO log timeout
+						return null;
+					} else {
+						//Not enough data, still not timed out
+						continue;
 					}
 				} else {
 					//TODO log something.
