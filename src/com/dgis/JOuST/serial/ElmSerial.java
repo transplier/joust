@@ -275,14 +275,18 @@ public class ElmSerial implements ObdSerial {
 
 	@Override
 	public ELMReadResult read_comport(byte[] buf, int timeout) throws IOException {
-		if (input.available() == 0) {
+		long startTime = System.currentTimeMillis();
+		while(input.available()==0){
 			try {
-				Thread.sleep(timeout);
+				Thread.sleep(10);
 			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			if (input.available() == 0)
+			if(System.currentTimeMillis()-startTime > timeout){
+				//TODO log something
 				return ELMReadResult.TIMEOUT;
+			}
 		}
 		int len = input.read(buf);
 		if (len == 0)
@@ -467,37 +471,37 @@ public class ElmSerial implements ObdSerial {
 
 	ResetResult RESET_WAIT_0100() throws IOException {
 		byte[] buf = new byte[128];
-		ELMReadResult readStatus = read_comport(buf, ECU_TIMEOUT);
-		//logger.logVerbose("Response: "+readStatus.toString());
-		if (readStatus == ELMReadResult.DATA){ // if new data detected in com port buffer
-			String dta = new String(buf);
-			response.append(dta); // append contents of buf to
-			//TODO I have no idea what to return here.
-			logger.logVerbose("Unexpected data: "+dta);
+		while(true){
+			ELMReadResult readStatus = read_comport(buf, ECU_TIMEOUT);
+			//logger.logVerbose("Response: "+readStatus.toString());
+			if (readStatus == ELMReadResult.DATA){ // if new data detected in com port buffer
+				String dta = new String(buf);
+				response.append(dta);
+				continue;
+			}
+													// response
+			else if (readStatus == ELMReadResult.PROMPT) // if we got the prompt
+			{
+				response.append(new String(buf));
+				ELMResponse status = process_response("0100".getBytes(), response.toString()
+						.getBytes());
+				logger.logVerbose("Response: "+status.toString());
+				if (status == ELMResponse.ERR_NO_DATA || status == ELMResponse.UNABLE_TO_CONNECT){
+					return new ResetResult(status, false);
+				}
+				else if (status != ELMResponse.HEX_DATA){
+					logger.logWarning("Communication error");
+					return new ResetResult(status, false);
+				}
+				return new ResetResult(status, true);
+	
+			} else if (readStatus == ELMReadResult.TIMEOUT) // if the timer timed out
+			{
+				logger.logWarning("Interface not found");
+				return new ResetResult(ELMResponse.ERR_NO_DATA, false);
+			}
 			return new ResetResult(ELMResponse.RUBBISH, false);
 		}
-												// response
-		else if (readStatus == ELMReadResult.PROMPT) // if we got the prompt
-		{
-			response.append(new String(buf));
-			ELMResponse status = process_response("0100".getBytes(), response.toString()
-					.getBytes());
-			logger.logVerbose("Response: "+status.toString());
-			if (status == ELMResponse.ERR_NO_DATA || status == ELMResponse.UNABLE_TO_CONNECT){
-				return new ResetResult(status, false);
-			}
-			else if (status != ELMResponse.HEX_DATA){
-				logger.logWarning("Communication error");
-				return new ResetResult(status, false);
-			}
-			return new ResetResult(status, true);
-
-		} else if (readStatus == ELMReadResult.TIMEOUT) // if the timer timed out
-		{
-			logger.logWarning("Interface not found");
-			return new ResetResult(ELMResponse.ERR_NO_DATA, false);
-		}
-		return new ResetResult(ELMResponse.RUBBISH, false);
 	}
 
 	public ELMResponse getDevice() {
