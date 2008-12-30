@@ -21,6 +21,11 @@ public class TestConnectAndID {
 			ELMResponse device = underTest.getDevice();
 			outln("Detected interface: "+(device==null?"None":device.toString()));
 			Thread.sleep(1000);
+			//Try getting throttle position as a test.
+			byte[] result = underTest.request_pid(0x11, 1);
+			float rawPos = (float)Integer.valueOf(ElmSerial.bytesToString(result).substring(4), 16);
+			rawPos*=100f/255f;
+			outln("Throttle position: "+rawPos);
 			outln("Closing port...");
 			underTest.close_comport();
 		} catch (Exception e){
