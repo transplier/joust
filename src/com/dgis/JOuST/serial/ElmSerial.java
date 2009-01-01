@@ -511,7 +511,7 @@ public class ElmSerial implements ObdSerial {
 	@Override
 	public byte[] request_pid(int pid, int numBytes) throws IOException {
 		if (getState() == ElmSerialState.READY) {
-			String cmd = String.format("01%X", pid);
+			String cmd = String.format("01%02X", pid);
 			send_command(cmd); // send command for that particular sensor
 			byte[] buf = new byte[256];
 			StringBuffer response = new StringBuffer(255);
@@ -531,7 +531,7 @@ public class ElmSerial implements ObdSerial {
 
 					if (response_type == ELMResponse.HEX_DATA) // HEX_DATA received
 					{
-						cmd = String.format("41%X", pid);
+						cmd = String.format("41%02X", pid);
 						if (find_valid_response(buf, response.toString(), cmd,
 								null)) {
 							buf[4 + numBytes* 2] = 0;  // solves problem where response is padded with zeroes (i.e., '41 05 7C 00 00 00')

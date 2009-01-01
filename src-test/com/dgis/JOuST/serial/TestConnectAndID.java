@@ -20,16 +20,22 @@ public class TestConnectAndID {
 			outln("Result of reset: "+underTest.reset_proc().response.toString());
 			ELMResponse device = underTest.getDevice();
 			outln("Detected interface: "+(device==null?"None":device.toString()));
-			//Try getting throttle position as a test.
+			//Try getting various data as a test.
 			long startTime = System.currentTimeMillis();
 			int count=0;
+			outln("Throttle\tSpeed\tRPM\tRate");
 			while(true){
-				byte[] result = underTest.request_pid(0x11, 1);
+				byte[] throttleResult = underTest.request_pid(0x11, 1);
+				byte[] speedResult = underTest.request_pid(0x0D, 1);
+				byte[] rpmResult = underTest.request_pid(0x0C, 2);
 				count++;
-				float rawPos = (float)Integer.valueOf(ElmSerial.bytesToString(result).substring(4), 16);
-				rawPos*=100f/255f;
-				outln("Throttle position: "+rawPos+" Rate: "+count/((System.currentTimeMillis()-startTime)/1000.));
-				if(rawPos>80) break;
+				float rawThrottle = (float)Integer.valueOf(ElmSerial.bytesToString(throttleResult).substring(4), 16);
+				float rawSpeed = (float)Integer.valueOf(ElmSerial.bytesToString(speedResult).substring(4), 16);
+				float rawRPM = (float)Integer.valueOf(ElmSerial.bytesToString(rpmResult).substring(4), 16);
+				rawThrottle*=100f/255f;
+				outln(rawThrottle+"\t"+(rawSpeed/1.609)+"\t"+(rawRPM/4.)+"\t"+(count/((System.currentTimeMillis()-startTime)/1000.)));
+				
+				if(rawRPM/4>4000) break;
 			}
 			outln("Closing port...");
 			
