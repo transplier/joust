@@ -2,6 +2,9 @@ package com.dgis.JOuST.serial;
 
 import static org.junit.Assert.*;
 
+import gnu.io.PortInUseException;
+import gnu.io.UnsupportedCommOperationException;
+
 import java.io.IOException;
 
 import org.junit.Test;
@@ -35,36 +38,68 @@ public class ElmSerialTest {
 	}
 
 	@Test
-	public void testProcess_response() throws IOException {
+	public void testProcess_response() throws IOException, PortNotFoundException, PortInUseException, UnsupportedCommOperationException {
 		ElmSerial test = new ElmSerial("", 0);
 		byte[] buf = new byte[200];
 		strcpy(buf, "ELM320");
-		ELMResponse ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.INTERFACE_ELM320));
+		ElmResponseVisitor visit = new AElmResponseVisitor(){
+			@Override
+			Object defaultCase() {
+				fail();
+				return null;
+			}
+			@Override
+			public Object interfaceFound(ELMInterfaceType type) {
+				assertTrue((type == ELMInterfaceType.INTERFACE_ELM320));
+				return null;
+			}
+		};
+		
+		test.process_response(visit, null, buf);
 
+		
+		visit = new AElmResponseVisitor(){
+			@Override
+			Object defaultCase() {
+				fail();
+				return null;
+			}
+			@Override
+			public Object interfaceFound(ELMInterfaceType type) {
+				assertTrue((type == ELMInterfaceType.INTERFACE_ELM323));
+				return null;
+			}
+		};		
 		strcpy(buf, "SEARCHING...ELM323");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.INTERFACE_ELM323));
+		test.process_response(visit, null, buf);
 
+		
+		visit = new AElmResponseVisitor(){
+			@Override
+			Object defaultCase() {
+				fail();
+				return null;
+			}
+			@Override
+			public Object hexData() {
+				return null;
+			}
+		};	
+		
 		strcpy(buf, "9f");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.HEX_DATA));
+		test.process_response(visit, null, buf);
 
 		strcpy(buf, "BUS INIT: ...OK\n\r9F\t\t\r\n");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.HEX_DATA));
+		test.process_response(visit, null, buf);
 
 		strcpy(buf, "97  ");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.HEX_DATA));
+		test.process_response(visit, null, buf);
 
 		strcpy(buf, " AF");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.HEX_DATA));
+		test.process_response(visit, null, buf);
 
 		strcpy(buf, "FA");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.HEX_DATA));
+		test.process_response(visit, null, buf);
 		
 		
 		buf = new byte[] { 52, 49, 32, 48, 48, 32, 57, 56, 32, 49, 56, 32, 56,
@@ -76,8 +111,7 @@ public class ElmSerialTest {
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
 		byte[] req = "0100".getBytes();
 		System.err.println("\n");
-		ret = test.process_response(req, buf);
-		assertTrue((ret == ELMResponse.HEX_DATA));
+		test.process_response(visit, req, buf);
 		
 		buf = new byte[] { 52, 120, 32, 48, 48, 32, 57, 56, 32, 49, 56, 32, 56,
 				48, 32, 48, 49, 32, 13, 52, 49, 32, 48, 48, 32, 66, 69, 32, 51,
@@ -87,16 +121,46 @@ public class ElmSerialTest {
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
 		System.err.println("\n");
-		ret = test.process_response(req, buf);
-		assertTrue((ret == ELMResponse.RUBBISH));
+		visit = new AElmResponseVisitor(){
+			@Override
+			Object defaultCase() {
+				fail();
+				return null;
+			}
+			@Override
+			public Object rubbish() {
+				return null;
+			}
+		};
+		test.process_response(visit, req, buf);
 
+		visit = new AElmResponseVisitor(){
+			@Override
+			Object defaultCase() {
+				fail();
+				return null;
+			}
+			@Override
+			public Object dataError2() {
+				return null;
+			}
+		};
 		strcpy(buf, "<DATA ERROR>");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.DATA_ERROR2));
+		test.process_response(visit, null, buf);
 		
+		visit = new AElmResponseVisitor(){
+			@Override
+			Object defaultCase() {
+				fail();
+				return null;
+			}
+			@Override
+			public Object unableToConnect() {
+				return null;
+			}
+		};
 		strcpy(buf, ">\n\rUNABLETOCONNECT\n");
-		ret = test.process_response(null, buf);
-		assertTrue((ret == ELMResponse.UNABLE_TO_CONNECT));
+		test.process_response(visit, null, buf);
 	}
 
 	@Test

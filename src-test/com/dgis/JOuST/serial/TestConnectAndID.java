@@ -13,33 +13,64 @@ public class TestConnectAndID {
 		
 		String dev = args[0];
 		int speed = 38400;
-		ElmSerial underTest = new ElmSerial(dev, speed);
 		try{
+			ObdSerial underTest = new ElmSerial(dev, speed);
 			outln("Opening port...");
-			underTest.open_comport();
-			outln("Result of reset: "+underTest.reset_proc().response.toString());
-			ELMResponse device = underTest.getDevice();
-			outln("Detected interface: "+(device==null?"None":device.toString()));
+			outln("Result of reset: "+underTest.resetAndHandshake().response.toString());
+			String device = underTest.getInterfaceIdentifier();
+			outln("Detected interface: "+(device==null?"None":device));
 			//Try getting various data as a test.
 			long startTime = System.currentTimeMillis();
 			int count=0;
-			outln("Throttle\tSpeed\tRPM\tRate");
-			while(true){
-				byte[] throttleResult = underTest.request_pid(0x11, 1);
-				byte[] speedResult = underTest.request_pid(0x0D, 1);
-				byte[] rpmResult = underTest.request_pid(0x0C, 2);
-				count++;
-				float rawThrottle = (float)Integer.valueOf(ElmSerial.bytesToString(throttleResult).substring(4), 16);
-				float rawSpeed = (float)Integer.valueOf(ElmSerial.bytesToString(speedResult).substring(4), 16);
-				float rawRPM = (float)Integer.valueOf(ElmSerial.bytesToString(rpmResult).substring(4), 16);
-				rawThrottle*=100f/255f;
-				outln(rawThrottle+"\t"+(rawSpeed/1.609)+"\t"+(rawRPM/4.)+"\t"+(count/((System.currentTimeMillis()-startTime)/1000.)));
-				
-				if(rawRPM/4>4000) break;
+			
+			
+			PIDResultListener throttleList = new PIDResultListener(){
+				@Override
+				public void dataReceived(int pid, int numBytes, byte[] data) {
+					float rawThrottle = (float)Integer.valueOf(ElmSerial.bytesToString(data).substring(4), 16);
+					rawThrottle*=100f/255f;
+					System.out.println("Throttle: "+rawThrottle);
+				}
+				@Override
+				public void error(String msg) {
+					System.err.println(msg);
+				}
+			};
+			PIDResultListener speedList = new PIDResultListener(){
+				@Override
+				public void dataReceived(int pid, int numBytes, byte[] data) {
+					float rawSpeed = (float)Integer.valueOf(ElmSerial.bytesToString(data).substring(4), 16);
+					rawSpeed/=1.609;
+					System.out.println("Speed: "+rawSpeed);
+				}
+				@Override
+				public void error(String msg) {
+					System.err.println(msg);
+				}
+			};
+			PIDResultListener rpmList = new PIDResultListener(){
+				@Override
+				public void dataReceived(int pid, int numBytes, byte[] data) {
+					float rawRPM = (float)Integer.valueOf(ElmSerial.bytesToString(data).substring(4), 16);
+					rawRPM/=4.;
+					System.out.println("RPM: "+rawRPM);
+				}
+				@Override
+				public void error(String msg) {
+					System.err.println(msg);
+				}
+			};
+			
+			while(System.in.available()>0){
+				underTest.requestPID(throttleList, 0x11, 1);
+				underTest.requestPID(speedList, 0x0D, 1);
+				underTest.requestPID(rpmList, 0x0C, 2);
+				count++;				
+				outln(""+(count/((System.currentTimeMillis()-startTime)/1000.)));
 			}
 			outln("Closing port...");
 			
-			underTest.close_comport();
+			underTest.close();
 		} catch (Exception e){
 			e.printStackTrace();
 		}
