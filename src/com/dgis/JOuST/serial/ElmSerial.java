@@ -1,17 +1,9 @@
 package com.dgis.JOuST.serial;
 
-import gnu.io.CommPortIdentifier;
-import gnu.io.PortInUseException;
-import gnu.io.SerialPort;
-import gnu.io.UnsupportedCommOperationException;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Collections;
-import java.util.List;
 
-import com.dgis.JOuST.OBDInterface;
 import com.dgis.util.Logger;
 
 public class ElmSerial implements ObdSerial {
@@ -23,129 +15,50 @@ public class ElmSerial implements ObdSerial {
 
 	private static Logger logger = Logger.getInstance();
 
-	private String serialDevice;
-	private int baud;
-
 	private InputStream input;
 	private OutputStream output;
-	private SerialPort port;
 	
-	private SerialState portState = SerialState.CLOSED;
-
+	boolean isOpen=false;
+	
 	// ///PROTOCOL SPECIFIC VARIABLES/////
 	private ELMInterfaceType device=ELMInterfaceType.UNKNOWN_INTERFACE;
 
-	public ElmSerial(String serialDevice, int baud) throws PortNotFoundException, PortInUseException, UnsupportedCommOperationException, IOException {
-		this.serialDevice = serialDevice;
-		this.baud = baud;
-		open();
+	public ElmSerial(InputStream in, OutputStream out) {
+		try {
+			reopen(in,out);
+		} catch (IOException e) {
+			logger.logError("Very unexpected error. Contact author, as he's an idiot.");
+			e.printStackTrace();
+		}
 	}
 
-	@SuppressWarnings("unchecked")
-	public void open() throws PortNotFoundException, PortInUseException,
-			UnsupportedCommOperationException, IOException {
-		if(portState == SerialState.OPEN){
-			logger.logWarning("port was already open.");
-			return;
-		}
-		logger.logInfo("Trying to open " + serialDevice + " @ " + baud
-				+ " baud");
-		while (portState != SerialState.CLOSED) {
-			logger
-					.logWarning("Port was already opened by us, reopening...");
-			input.close();
-		}
-		// Get the set of all ports seen by RXTX
-		List<CommPortIdentifier> portIdentifiers = Collections
-				.list(CommPortIdentifier.getPortIdentifiers());
-		StringBuffer found = new StringBuffer();
-		for (CommPortIdentifier id : portIdentifiers)
-			found.append(id.getName() + " ");
-		logger.logInfo("Found the following ports:" + found.toString());
-
-		// Sift through them to find the right one.
-		CommPortIdentifier portId = null; // will be set if port found
-		for (CommPortIdentifier pid : portIdentifiers) {
-			// Is the name the one we wanted?
-			if (pid.getName().equals(serialDevice)) {
-				// Is it a serial device?
-				if (pid.getPortType() == CommPortIdentifier.PORT_SERIAL) {
-
-					portId = pid;
-					break;
-
-				} else {
-					// TODO Make a config option to ignore wrong type
-					logger
-							.logWarning(serialDevice
-									+ " does not seem to be a serial device (type: "
-									+ pid.getPortType() + "), ignoring.");
-				}
-
-			}
-		}
-
-		if (portId == null) {
-			logger.logWarning("Could not find usable port " + serialDevice);
-			throw new PortNotFoundException(serialDevice);
-		}
-
-		// We now have a valid portId.
-
-		// Try to lock port
-		logger.logVerbose("Trying to get exclusive access to "
-				+ serialDevice);
-		try {
-			port = (SerialPort) portId.open(OBDInterface.APPLICATION_NAME,
-					10000 // Wait max. 10 sec. to acquire port
-					);
-			logger.logVerbose("Access granted.");
-
-			try {
-				// Locked OK. Try setting parameters and opening port.
-				port.setSerialPortParams(baud, SerialPort.DATABITS_8,
-						SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-
-				try {
-					input = port.getInputStream();
-					output = port.getOutputStream();
-					portState=SerialState.OPEN;
-					// WE ARE DONE.
-					logger.logInfo(serialDevice + " opened.");
-					return;
-				} catch (IOException e) {
-					logger.logWarning("Cannot open port: "
-							+ e.getLocalizedMessage());
-					throw e;
-				}
-
-			} catch (UnsupportedCommOperationException e) {
-				logger.logWarning(serialDevice
-						+ " does not seem to support 8N1 @ " + baud);
-				throw e;
-			}
-		} catch (PortInUseException inUseException) {
-			logger.logWarning(serialDevice + " seems to be in use by "
-					+ inUseException.currentOwner);
-			throw inUseException;
-		}
+	/**
+	 * Re-uses this instance with a different set of streams.
+	 * If currently open, will call stop() first.
+	 * Remember to call resetAndHandshake() before using.
+	 * @param in
+	 * @param out
+	 * @throws IOException 
+	 */
+	public void reopen(InputStream in, OutputStream out) throws IOException {
+		if(isOpen) stop();
+		input=in;
+		output=out;
+		isOpen=true;
 	}
 
 	@Override
-	public void close() throws IOException {
-		logger.logInfo("Closing " + port.getName());
+	public void stop() throws IOException {
+		logger.logInfo("Closing port.");
 		input.close();
 		output.close();
-		port.close();
 		input=null;
 		output=null;
-		portState = SerialState.CLOSED;
 	}
 
 	@Override
-	public SerialState getState() {
-		// TODO Make this not dumb.
-		return SerialState.OPEN;
+	public boolean isOpen() {
+		return isOpen;
 	}
 
 	private void send_command(String c) throws IOException {
@@ -411,11 +324,11 @@ public class ElmSerial implements ObdSerial {
 	// TODO make this not ugly
 	StringBuffer response = new StringBuffer(256);
 	//Lifted from Scantool.
-	public ResetResult resetAndHandshake() throws IOException, SerialPortStateException {
+	public ResetResult resetAndHandshake() throws IOException {
 		logger.logInfo("Resetting hardware interface.");
-		if(portState != SerialState.OPEN){
-			logger.logWarning("resetAndHandshake called without an open port.");
-			throw new SerialPortStateException();
+		if(!isOpen){
+			logger.logWarning("resetAndHandshake() called after stop().");
+			throw new IOException("resetAndHandshake() called after stop().");
 		}
 		// case RESET_START:
 		// wait until we either get a prompt or the timer times out
@@ -547,8 +460,8 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	@Override
-	public void requestPID(final PIDResultListener list, final int pid, final int numBytes) throws IOException, SerialPortStateException {
-		if (getState() == SerialState.OPEN) {
+	public void requestPID(final PIDResultListener list, final int pid, final int numBytes) throws IOException {
+		if (isOpen) {
 			String cmd = String.format("01%02X", pid);
 			send_command(cmd); // send command for that particular sensor
 			final byte[] buf = new byte[256];
@@ -602,8 +515,8 @@ public class ElmSerial implements ObdSerial {
 				}
 			}
 		} else {
-			logger.logWarning("requestPID called without an open port.");
-			throw new SerialPortStateException();
+			logger.logWarning("requestPID() called after stop().");
+			throw new IOException("requestPID() called after stop().");
 		}
 	}
 

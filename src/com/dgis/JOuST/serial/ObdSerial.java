@@ -9,11 +9,14 @@ public interface ObdSerial {
 	public static final int  ECU_TIMEOUT=           5000;
 	
 	/**
-	 * Attempts to release all communication ports used by this instance.
+	 * Attempts to stop all communication used by this instance.
 	 * Subsequent calls to connect() or requestPID() should throw exceptions.
+	 * This should release all communications resources used by the instance
+	 * (as in, all streams should be .close()'d).
+	 * Implementation specific whether the instance can be re-opened.
 	 * @throws IOException
 	 */
-	public void close() throws IOException, SerialPortStateException;
+	public void stop() throws IOException;
 	
 	/**
 	 * Attempts to establish communications to the controller.
@@ -22,7 +25,7 @@ public interface ObdSerial {
 	 * @return
 	 * @throws IOException
 	 */
-	public ResetResult resetAndHandshake() throws IOException, SerialPortStateException;
+	public ResetResult resetAndHandshake() throws IOException;
 	
 	/**
 	 * Requests an arbitrary PID from the ECU. May return before request
@@ -33,12 +36,13 @@ public interface ObdSerial {
 	 * @throws IOException
 	 * @throws SerialPortStateException
 	 */
-	public void requestPID(PIDResultListener list, int pid, int numBytes) throws IOException, SerialPortStateException;
+	public void requestPID(PIDResultListener list, int pid, int numBytes) throws IOException;
 	
 	/**
-	 * @return the state of the serial connection (ignores protocol state, OS reported state only).
+	 * @return the state of the connection (ignores protocol state,
+	 * reports if close() has been called).
 	 */
-	public SerialState getState();
+	public boolean isOpen();
 
 	/**
 	 * Gets an arbitrary string identifying the device to the user.
@@ -51,16 +55,6 @@ interface PIDResultListener{
 	void dataReceived(int pid, int numBytes, byte[] data);
 	void error(String msg); 
 }
-
-class SerialPortStateException extends Exception{
-	private static final long serialVersionUID = 1L;
-}
-
-enum SerialState {
-	OPEN, ERROR, CLOSED
-}
-
-
 
 class ResetResult{
 	/**

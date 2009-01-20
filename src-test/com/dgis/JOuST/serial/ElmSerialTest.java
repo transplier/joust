@@ -39,7 +39,7 @@ public class ElmSerialTest {
 
 	@Test
 	public void testProcess_response() throws IOException, PortNotFoundException, PortInUseException, UnsupportedCommOperationException {
-		ElmSerial test = new ElmSerial("", 0);
+		ElmSerial test = new ElmSerial(null, null);
 		byte[] buf = new byte[200];
 		strcpy(buf, "ELM320");
 		ElmResponseVisitor visit = new AElmResponseVisitor(){

@@ -1,6 +1,7 @@
 package com.dgis.JOuST.serial;
 
 import com.dgis.util.Logger;
+import com.dgis.util.SerialHelper;
 
 public class TestConnectAndID {
 
@@ -14,7 +15,8 @@ public class TestConnectAndID {
 		String dev = args[0];
 		int speed = 38400;
 		try{
-			ObdSerial underTest = new ElmSerial(dev, speed);
+			gnu.io.SerialPort port = SerialHelper.open(dev, speed, "JOuST Tester", log);
+			ObdSerial underTest = new ElmSerial(port.getInputStream(), port.getOutputStream());
 			outln("Opening port...");
 			ResetResult result = underTest.resetAndHandshake();
 			outln("Result of reset: "+result.response.toString());
@@ -74,7 +76,7 @@ public class TestConnectAndID {
 			}
 			outln("Closing port...");
 			
-			underTest.close();
+			underTest.stop();
 		} catch (Exception e){
 			e.printStackTrace();
 		}
