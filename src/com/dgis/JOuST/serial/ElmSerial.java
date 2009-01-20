@@ -48,89 +48,86 @@ public class ElmSerial implements ObdSerial {
 			logger.logWarning("port was already open.");
 			return;
 		}
-		try {
-			logger.logInfo("Trying to open " + serialDevice + " @ " + baud
-					+ " baud");
-			while (portState != SerialState.CLOSED) {
-				logger
-						.logWarning("Port was already opened by us, reopening...");
-				input.close();
-			}
-			// Get the set of all ports seen by RXTX
-			List<CommPortIdentifier> portIdentifiers = Collections
-					.list(CommPortIdentifier.getPortIdentifiers());
-			StringBuffer found = new StringBuffer();
-			for (CommPortIdentifier id : portIdentifiers)
-				found.append(id.getName() + " ");
-			logger.logInfo("Found the following ports:" + found.toString());
+		logger.logInfo("Trying to open " + serialDevice + " @ " + baud
+				+ " baud");
+		while (portState != SerialState.CLOSED) {
+			logger
+					.logWarning("Port was already opened by us, reopening...");
+			input.close();
+		}
+		// Get the set of all ports seen by RXTX
+		List<CommPortIdentifier> portIdentifiers = Collections
+				.list(CommPortIdentifier.getPortIdentifiers());
+		StringBuffer found = new StringBuffer();
+		for (CommPortIdentifier id : portIdentifiers)
+			found.append(id.getName() + " ");
+		logger.logInfo("Found the following ports:" + found.toString());
 
-			// Sift through them to find the right one.
-			CommPortIdentifier portId = null; // will be set if port found
-			for (CommPortIdentifier pid : portIdentifiers) {
-				// Is the name the one we wanted?
-				if (pid.getName().equals(serialDevice)) {
-					// Is it a serial device?
-					if (pid.getPortType() == CommPortIdentifier.PORT_SERIAL) {
+		// Sift through them to find the right one.
+		CommPortIdentifier portId = null; // will be set if port found
+		for (CommPortIdentifier pid : portIdentifiers) {
+			// Is the name the one we wanted?
+			if (pid.getName().equals(serialDevice)) {
+				// Is it a serial device?
+				if (pid.getPortType() == CommPortIdentifier.PORT_SERIAL) {
 
-						portId = pid;
-						break;
+					portId = pid;
+					break;
 
-					} else {
-						// TODO Make a config option to ignore wrong type
-						logger
-								.logWarning(serialDevice
-										+ " does not seem to be a serial device (type: "
-										+ pid.getPortType() + "), ignoring.");
-					}
-
+				} else {
+					// TODO Make a config option to ignore wrong type
+					logger
+							.logWarning(serialDevice
+									+ " does not seem to be a serial device (type: "
+									+ pid.getPortType() + "), ignoring.");
 				}
+
 			}
+		}
 
-			if (portId == null) {
-				logger.logWarning("Could not find usable port " + serialDevice);
-				throw new PortNotFoundException(serialDevice);
-			}
+		if (portId == null) {
+			logger.logWarning("Could not find usable port " + serialDevice);
+			throw new PortNotFoundException(serialDevice);
+		}
 
-			// We now have a valid portId.
+		// We now have a valid portId.
 
-			// Try to lock port
-			logger.logVerbose("Trying to get exclusive access to "
-					+ serialDevice);
+		// Try to lock port
+		logger.logVerbose("Trying to get exclusive access to "
+				+ serialDevice);
+		try {
+			port = (SerialPort) portId.open(OBDInterface.APPLICATION_NAME,
+					10000 // Wait max. 10 sec. to acquire port
+					);
+			logger.logVerbose("Access granted.");
+
 			try {
-				port = (SerialPort) portId.open(OBDInterface.APPLICATION_NAME,
-						10000 // Wait max. 10 sec. to acquire port
-						);
-				logger.logVerbose("Access granted.");
+				// Locked OK. Try setting parameters and opening port.
+				port.setSerialPortParams(baud, SerialPort.DATABITS_8,
+						SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
 
 				try {
-					// Locked OK. Try setting parameters and opening port.
-					port.setSerialPortParams(baud, SerialPort.DATABITS_8,
-							SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-
-					try {
-						input = port.getInputStream();
-						output = port.getOutputStream();
-						// WE ARE DONE.
-						logger.logInfo(serialDevice + " opened.");
-						return;
-					} catch (IOException e) {
-						logger.logWarning("Cannot open port: "
-								+ e.getLocalizedMessage());
-						throw e;
-					}
-
-				} catch (UnsupportedCommOperationException e) {
-					logger.logWarning(serialDevice
-							+ " does not seem to support 8N1 @ " + baud);
+					input = port.getInputStream();
+					output = port.getOutputStream();
+					portState=SerialState.OPEN;
+					// WE ARE DONE.
+					logger.logInfo(serialDevice + " opened.");
+					return;
+				} catch (IOException e) {
+					logger.logWarning("Cannot open port: "
+							+ e.getLocalizedMessage());
 					throw e;
 				}
-			} catch (PortInUseException inUseException) {
-				logger.logWarning(serialDevice + " seems to be in use by "
-						+ inUseException.currentOwner);
-				throw inUseException;
+
+			} catch (UnsupportedCommOperationException e) {
+				logger.logWarning(serialDevice
+						+ " does not seem to support 8N1 @ " + baud);
+				throw e;
 			}
-		} catch (Exception e) {
-			portState = SerialState.ERROR;
+		} catch (PortInUseException inUseException) {
+			logger.logWarning(serialDevice + " seems to be in use by "
+					+ inUseException.currentOwner);
+			throw inUseException;
 		}
 	}
 

@@ -16,7 +16,11 @@ public class TestConnectAndID {
 		try{
 			ObdSerial underTest = new ElmSerial(dev, speed);
 			outln("Opening port...");
-			outln("Result of reset: "+underTest.resetAndHandshake().response.toString());
+			ResetResult result = underTest.resetAndHandshake();
+			outln("Result of reset: "+result.response.toString());
+			if(result.foundDevice == false){
+				outln("Device not found, quitting.");
+			}
 			String device = underTest.getInterfaceIdentifier();
 			outln("Detected interface: "+(device==null?"None":device));
 			//Try getting various data as a test.
