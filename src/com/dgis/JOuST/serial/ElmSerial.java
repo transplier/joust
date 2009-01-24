@@ -47,6 +47,13 @@ public class ElmSerial implements ObdSerial {
 	// ///PROTOCOL SPECIFIC VARIABLES/////
 	private ELMInterfaceType device=ELMInterfaceType.UNKNOWN_INTERFACE;
 
+	/**
+	 * Construct a new ElmSerial with the specified Streams to use
+	 * for communication. Will not try to perform any communication
+	 * yer.
+	 * @param in
+	 * @param out
+	 */
 	public ElmSerial(InputStream in, OutputStream out) {
 		try {
 			reopen(in,out);
@@ -85,11 +92,28 @@ public class ElmSerial implements ObdSerial {
 		return isOpen;
 	}
 
+	/**
+	 * Sends a String command to the device through the Stream.
+	 * @param c
+	 * @throws IOException
+	 */
 	private void send_command(String c) throws IOException {
+		//TODO: Why aren't I using c.getBytes()?
 		byte[] buf = new byte[c.length()];
 		for (int x = 0; x < buf.length; x++)
 			buf[x] = (byte) c.charAt(x);
 		send_command(buf);
+	}
+	
+	/**
+	 * Sends a command to the device through the Stream.
+	 * @param command
+	 * @throws IOException
+	 */
+	public void send_command(byte[] command) throws IOException {
+		output.write(command);
+		output.write(new byte[] { '\r' });
+		output.flush();
 	}
 
 	/**
@@ -201,6 +225,10 @@ public class ElmSerial implements ObdSerial {
 		return visit.rubbish();
 	}
 
+	/**
+	 * Attempts to turn off echo at the device to save bandwidth.
+	 * @throws IOException in the event of a timeout or other error communicating.
+	 */
 	private void turnOffEcho() throws IOException {
 		byte[] temp_buf = new byte[80];
 		send_command("ate0"); // turn off the echo
@@ -211,7 +239,7 @@ public class ElmSerial implements ObdSerial {
 			ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
 			if (res == ELMReadResult.PROMPT)
 				break;
-			if (res == ELMReadResult.TIMEOUT) {
+			else if (res == ELMReadResult.TIMEOUT) {
 				timedOut = true;
 				break;
 			}
@@ -222,15 +250,25 @@ public class ElmSerial implements ObdSerial {
 				ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
 				if (res == ELMReadResult.PROMPT)
 					break;
-				if (res == ELMReadResult.TIMEOUT) {
+				else if (res == ELMReadResult.TIMEOUT) {
 					timedOut = true;
 					break;
 				}
 			}
-		}		
+		} else {
+			throw new IOException("Timed out while trying to disable echo.");
+		}
 	}
 
-	public ELMReadResult read_comport(byte[] buf, int timeout) throws IOException {
+	/**
+	 * Attempts to read from the Stream.
+	 * @param buf the buffer to read into.
+	 * @param timeout Will return ElmReadResult.TIMEOUT after this much time without data.
+	 * @return the result of the read.
+	 * @throws IOException
+	 */
+	private ELMReadResult read_comport(byte[] buf, int timeout) throws IOException {
+		//Wait for data.
 		long startTime = System.currentTimeMillis();
 		while(input.available()==0){
 			try {
@@ -244,6 +282,7 @@ public class ElmSerial implements ObdSerial {
 				return ELMReadResult.TIMEOUT;
 			}
 		}
+		//Read the data.
 		int len = input.read(buf);
 		if (len == 0)
 			return ELMReadResult.EMPTY;
@@ -256,14 +295,13 @@ public class ElmSerial implements ObdSerial {
 		return ELMReadResult.DATA;
 	}
 
-	public void send_command(byte[] command) throws IOException {
-		output.write(command);
-		output.write(new byte[] { '\r' });
-		output.flush();
-	}
-
-	// Lifted from Scantool
-	String get_protocol_string(ELMInterfaceType interface_type, int protocol_id) {
+	/**
+	 * Converts an interface type to a human-readable String. Lifted from Scantool.
+	 * @param interface_type
+	 * @param protocol_id
+	 * @return
+	 */
+	public static String get_protocol_string(ELMInterfaceType interface_type, int protocol_id) {
 		switch (interface_type) {
 		case INTERFACE_ELM320:
 			return "SAE J1850 PWM (41.6 kBit/s)";
@@ -346,9 +384,10 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	// TODO make this not ugly
-	StringBuffer response = new StringBuffer(256);
+
 	//Lifted from Scantool.
 	public ResetResult resetAndHandshake() throws IOException {
+		StringBuffer response = new StringBuffer(256);
 		logger.logInfo("Resetting hardware interface.");
 		if(!isOpen){
 			logger.logWarning("resetAndHandshake() called after stop().");
@@ -405,7 +444,7 @@ public class ElmSerial implements ObdSerial {
 			case INTERFACE_ELM323: case INTERFACE_ELM327:
 				logger.logInfo("Found an "+device.toString());
 				logger.logInfo("Waiting for ECU timeout...");
-				return RESET_ECU_TIMEOUT();
+				return RESET_ECU_TIMEOUT(response);
 			case INTERFACE_ELM320: case INTERFACE_ELM322:
 				logger.logInfo("Found a "+device.toString());
 				return new ResetResult(device.toString(), true);
@@ -424,7 +463,7 @@ public class ElmSerial implements ObdSerial {
 		}
 	}
 
-	ResetResult RESET_ECU_TIMEOUT() throws IOException {
+	private ResetResult RESET_ECU_TIMEOUT(StringBuffer response) throws IOException {
 		// if (serial_time_out) // if the timer timed out
 		// {
 		if (device == ELMInterfaceType.INTERFACE_ELM327) {
@@ -432,13 +471,13 @@ public class ElmSerial implements ObdSerial {
 			send_command("0100");
 			response = new StringBuffer(256);
 			logger.logInfo("Detecting OBD protocol...");
-			return RESET_WAIT_0100();
+			return RESET_WAIT_0100(response);
 		} else //TODO Is this right?
 			return new ResetResult(device.toString(), true);
 		// }
 	}
 
-	ResetResult RESET_WAIT_0100() throws IOException {
+	private ResetResult RESET_WAIT_0100(StringBuffer response) throws IOException {
 		byte[] buf = new byte[128];
 		while(true){
 			ELMReadResult readStatus = read_comport(buf, ECU_TIMEOUT);

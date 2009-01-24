@@ -35,26 +35,6 @@ import org.junit.Test;
 
 public class ElmSerialTest {
 
-	@Test
-	public void testElmSerial() {
-	}
-
-	@Test
-	public void testOpen_comport() {
-	}
-
-	@Test
-	public void testClose_comport() {
-	}
-
-	@Test
-	public void testGetErrorMessage() {
-	}
-
-	@Test
-	public void testGetState() {
-	}
-
 	private void strcpy(byte[] buf, String s) {
 		for (int x = 0; x < s.length(); x++)
 			buf[x] = (byte) s.charAt(x);
@@ -187,14 +167,6 @@ public class ElmSerialTest {
 		test.process_response(visit, null, buf);
 	}
 
-	@Test
-	public void testRead_comport() {
-	}
-
-	@Test
-	public void testSend_command() {
-	}
-	
 	@Test
 	public void testBytesToString() {
 		byte[] a = "Hello".getBytes();
