@@ -6,6 +6,30 @@ import java.io.OutputStream;
 
 import com.dgis.util.Logger;
 
+/*
+ * Copyright (C) 2009 Giacomo Ferrari
+ * This file is part of JOuST.
+ *  JOuST is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  JOuST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with JOuST.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * An implementation of ObdSerial that can talk to the ELM32X line of interfaces.
+ *
+ * Copyright (C) 2009 Giacomo Ferrari
+ * @author Giacomo Ferrari
+ */
+
 public class ElmSerial implements ObdSerial {
 	
 	public static final int  ATZ_TIMEOUT=           1500;
@@ -436,7 +460,8 @@ public class ElmSerial implements ObdSerial {
 					}
 					@Override
 					public Object hexData() {
-						return new ResetResult("Communication error.", false);
+						return defaultCase();
+						//return new ResetResult("Communication error.", false);
 					}
 					@Override
 					public Object noData() {

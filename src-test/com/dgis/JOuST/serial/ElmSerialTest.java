@@ -9,6 +9,30 @@ import java.io.IOException;
 
 import org.junit.Test;
 
+/*
+ * Copyright (C) 2009 Giacomo Ferrari
+ * This file is part of JOuST.
+ *  JOuST is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  JOuST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with JOuST.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * Some tests for ElmSerial
+ *
+ * Copyright (C) 2009 Giacomo Ferrari
+ * @author Giacomo Ferrari
+ */
+
 public class ElmSerialTest {
 
 	@Test
@@ -38,7 +62,7 @@ public class ElmSerialTest {
 	}
 
 	@Test
-	public void testProcess_response() throws IOException, PortNotFoundException, PortInUseException, UnsupportedCommOperationException {
+	public void testProcess_response() throws IOException, PortInUseException, UnsupportedCommOperationException {
 		ElmSerial test = new ElmSerial(null, null);
 		byte[] buf = new byte[200];
 		strcpy(buf, "ELM320");

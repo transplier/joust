@@ -3,6 +3,30 @@ package com.dgis.JOuST.serial;
 import com.dgis.util.Logger;
 import com.dgis.util.SerialHelper;
 
+/*
+ * Copyright (C) 2009 Giacomo Ferrari
+ * This file is part of JOuST.
+ *  JOuST is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  JOuST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with JOuST.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * Test program that establishes a connection to the scan tool and attempts to request data.
+ *
+ * Copyright (C) 2009 Giacomo Ferrari
+ * @author Giacomo Ferrari
+ */
+
 public class TestConnectAndID {
 
 	public static void main(String[] args) {
@@ -67,7 +91,7 @@ public class TestConnectAndID {
 				}
 			};
 			
-			while(System.in.available()>0){
+			while(System.in.available()==0){
 				underTest.requestPID(throttleList, 0x11, 1);
 				underTest.requestPID(speedList, 0x0D, 1);
 				underTest.requestPID(rpmList, 0x0C, 2);
@@ -77,6 +101,9 @@ public class TestConnectAndID {
 			outln("Closing port...");
 			
 			underTest.stop();
+			port.getInputStream().close();
+			port.getOutputStream().close();
+			port.close();
 		} catch (Exception e){
 			e.printStackTrace();
 		}
