@@ -416,10 +416,10 @@ public class ElmSerial implements ObdSerial {
 	//Lifted from Scantool.
 	public ResetResult resetAndHandshake() throws IOException, SerialPortStateException {
 		logger.logInfo("Resetting hardware interface.");
-		if(portState != SerialState.OPEN){
+		/*if(portState != SerialState.OPEN){
 			logger.logWarning("resetAndHandshake called without an open port.");
 			throw new SerialPortStateException();
-		}
+		}*/
 		// case RESET_START:
 		// wait until we either get a prompt or the timer times out
 		long time = System.currentTimeMillis();
@@ -522,11 +522,11 @@ public class ElmSerial implements ObdSerial {
 				ResetResult res = (ResetResult) process_response(new AElmResponseVisitor(){
 					@Override
 					Object defaultCase() {
-						return new ResetResult(device.toString(), true);
+						return new ResetResult(device.toString(), false);
 					}
 					@Override
 					public Object hexData() {
-						return new ResetResult("Communication error.", false);
+						return new ResetResult("Detected interface.", true);
 					}
 					@Override
 					public Object noData() {
@@ -589,7 +589,7 @@ public class ElmSerial implements ObdSerial {
 								return null;
 							}
 						}, cmd.getBytes(), response.toString().getBytes());
-
+						return;
 				} else if(response_status == ELMReadResult.EMPTY){
 					if(System.currentTimeMillis() - start_time > OBD_REQUEST_TIMEOUT){
 						//TODO log timeout

@@ -61,10 +61,10 @@ public class TestConnectAndID {
 				}
 			};
 			
-			while(System.in.available()>0){
+			while(System.in.available()==0){
 				underTest.requestPID(throttleList, 0x11, 1);
-				underTest.requestPID(speedList, 0x0D, 1);
-				underTest.requestPID(rpmList, 0x0C, 2);
+				//underTest.requestPID(speedList, 0x0D, 1);
+				//underTest.requestPID(rpmList, 0x0C, 2);
 				count++;				
 				outln(""+(count/((System.currentTimeMillis()-startTime)/1000.)));
 			}
