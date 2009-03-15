@@ -9,27 +9,31 @@ import java.io.IOException;
 
 import org.junit.Test;
 
+/*
+ * Copyright (C) 2009 Giacomo Ferrari
+ * This file is part of JOuST.
+ *  JOuST is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  JOuST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with JOuST.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * Some tests for ElmSerial
+ *
+ * Copyright (C) 2009 Giacomo Ferrari
+ * @author Giacomo Ferrari
+ */
+
 public class ElmSerialTest {
-
-	@Test
-	public void testElmSerial() {
-	}
-
-	@Test
-	public void testOpen_comport() {
-	}
-
-	@Test
-	public void testClose_comport() {
-	}
-
-	@Test
-	public void testGetErrorMessage() {
-	}
-
-	@Test
-	public void testGetState() {
-	}
 
 	private void strcpy(byte[] buf, String s) {
 		for (int x = 0; x < s.length(); x++)
@@ -38,8 +42,8 @@ public class ElmSerialTest {
 	}
 
 	@Test
-	public void testProcess_response() throws IOException, PortNotFoundException, PortInUseException, UnsupportedCommOperationException {
-		ElmSerial test = new ElmSerial("", 0);
+	public void testProcess_response() throws IOException, PortInUseException, UnsupportedCommOperationException {
+		ElmSerial test = new ElmSerial(null, null);
 		byte[] buf = new byte[200];
 		strcpy(buf, "ELM320");
 		ElmResponseVisitor visit = new AElmResponseVisitor(){
@@ -163,14 +167,6 @@ public class ElmSerialTest {
 		test.process_response(visit, null, buf);
 	}
 
-	@Test
-	public void testRead_comport() {
-	}
-
-	@Test
-	public void testSend_command() {
-	}
-	
 	@Test
 	public void testBytesToString() {
 		byte[] a = "Hello".getBytes();

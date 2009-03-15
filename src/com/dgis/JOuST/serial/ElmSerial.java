@@ -1,18 +1,34 @@
 package com.dgis.JOuST.serial;
 
-import gnu.io.CommPortIdentifier;
-import gnu.io.PortInUseException;
-import gnu.io.SerialPort;
-import gnu.io.UnsupportedCommOperationException;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Collections;
-import java.util.List;
 
-import com.dgis.JOuST.OBDInterface;
 import com.dgis.util.Logger;
+
+/*
+ * Copyright (C) 2009 Giacomo Ferrari
+ * This file is part of JOuST.
+ *  JOuST is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  JOuST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with JOuST.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * An implementation of ObdSerial that can talk to the ELM32X line of interfaces.
+ *
+ * Copyright (C) 2009 Giacomo Ferrari
+ * @author Giacomo Ferrari
+ */
 
 public class ElmSerial implements ObdSerial {
 	
@@ -23,139 +39,81 @@ public class ElmSerial implements ObdSerial {
 
 	private static Logger logger = Logger.getInstance();
 
-	private String serialDevice;
-	private int baud;
-
 	private InputStream input;
 	private OutputStream output;
-	private SerialPort port;
 	
-	private SerialState portState = SerialState.CLOSED;
-
+	boolean isOpen=false;
+	
 	// ///PROTOCOL SPECIFIC VARIABLES/////
 	private ELMInterfaceType device=ELMInterfaceType.UNKNOWN_INTERFACE;
 
-	public ElmSerial(String serialDevice, int baud) throws PortNotFoundException, PortInUseException, UnsupportedCommOperationException, IOException {
-		this.serialDevice = serialDevice;
-		this.baud = baud;
-		open();
+	/**
+	 * Construct a new ElmSerial with the specified Streams to use
+	 * for communication. Will not try to perform any communication
+	 * yer.
+	 * @param in
+	 * @param out
+	 */
+	public ElmSerial(InputStream in, OutputStream out) {
+		try {
+			reopen(in,out);
+		} catch (IOException e) {
+			logger.logError("Very unexpected error. Contact author, as he's an idiot.");
+			e.printStackTrace();
+		}
 	}
 
-	@SuppressWarnings("unchecked")
-	public void open() throws PortNotFoundException, PortInUseException,
-			UnsupportedCommOperationException, IOException {
-		if(portState == SerialState.OPEN){
-			logger.logWarning("port was already open.");
-			return;
-		}
-		try {
-			logger.logInfo("Trying to open " + serialDevice + " @ " + baud
-					+ " baud");
-			while (portState != SerialState.CLOSED) {
-				logger
-						.logWarning("Port was already opened by us, reopening...");
-				input.close();
-			}
-			// Get the set of all ports seen by RXTX
-			List<CommPortIdentifier> portIdentifiers = Collections
-					.list(CommPortIdentifier.getPortIdentifiers());
-			StringBuffer found = new StringBuffer();
-			for (CommPortIdentifier id : portIdentifiers)
-				found.append(id.getName() + " ");
-			logger.logInfo("Found the following ports:" + found.toString());
-
-			// Sift through them to find the right one.
-			CommPortIdentifier portId = null; // will be set if port found
-			for (CommPortIdentifier pid : portIdentifiers) {
-				// Is the name the one we wanted?
-				if (pid.getName().equals(serialDevice)) {
-					// Is it a serial device?
-					if (pid.getPortType() == CommPortIdentifier.PORT_SERIAL) {
-
-						portId = pid;
-						break;
-
-					} else {
-						// TODO Make a config option to ignore wrong type
-						logger
-								.logWarning(serialDevice
-										+ " does not seem to be a serial device (type: "
-										+ pid.getPortType() + "), ignoring.");
-					}
-
-				}
-			}
-
-			if (portId == null) {
-				logger.logWarning("Could not find usable port " + serialDevice);
-				throw new PortNotFoundException(serialDevice);
-			}
-
-			// We now have a valid portId.
-
-			// Try to lock port
-			logger.logVerbose("Trying to get exclusive access to "
-					+ serialDevice);
-			try {
-				port = (SerialPort) portId.open(OBDInterface.APPLICATION_NAME,
-						10000 // Wait max. 10 sec. to acquire port
-						);
-				logger.logVerbose("Access granted.");
-
-				try {
-					// Locked OK. Try setting parameters and opening port.
-					port.setSerialPortParams(baud, SerialPort.DATABITS_8,
-							SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-
-					try {
-						input = port.getInputStream();
-						output = port.getOutputStream();
-						// WE ARE DONE.
-						logger.logInfo(serialDevice + " opened.");
-						return;
-					} catch (IOException e) {
-						logger.logWarning("Cannot open port: "
-								+ e.getLocalizedMessage());
-						throw e;
-					}
-
-				} catch (UnsupportedCommOperationException e) {
-					logger.logWarning(serialDevice
-							+ " does not seem to support 8N1 @ " + baud);
-					throw e;
-				}
-			} catch (PortInUseException inUseException) {
-				logger.logWarning(serialDevice + " seems to be in use by "
-						+ inUseException.currentOwner);
-				throw inUseException;
-			}
-		} catch (Exception e) {
-			portState = SerialState.ERROR;
-		}
+	/**
+	 * Re-uses this instance with a different set of streams.
+	 * If currently open, will call stop() first.
+	 * Remember to call resetAndHandshake() before using.
+	 * @param in
+	 * @param out
+	 * @throws IOException 
+	 */
+	public void reopen(InputStream in, OutputStream out) throws IOException {
+		if(isOpen) stop();
+		input=in;
+		output=out;
+		isOpen=true;
 	}
 
 	@Override
-	public void close() throws IOException {
-		logger.logInfo("Closing " + port.getName());
+	public void stop() throws IOException {
+		logger.logInfo("Closing port.");
 		input.close();
 		output.close();
-		port.close();
 		input=null;
 		output=null;
-		portState = SerialState.CLOSED;
 	}
 
 	@Override
-	public SerialState getState() {
-		// TODO Make this not dumb.
-		return SerialState.OPEN;
+	public boolean isOpen() {
+		return isOpen;
 	}
 
+	/**
+	 * Sends a String command to the device through the Stream.
+	 * @param c
+	 * @throws IOException
+	 */
 	private void send_command(String c) throws IOException {
+		//TODO: Why aren't I using c.getBytes()?
 		byte[] buf = new byte[c.length()];
 		for (int x = 0; x < buf.length; x++)
 			buf[x] = (byte) c.charAt(x);
 		send_command(buf);
+	}
+	
+	/**
+	 * Sends a command to the device through the Stream.
+	 * @param command
+	 * @throws IOException
+	 */
+	public void send_command(byte[] command) throws IOException {
+		output.write(command);
+		output.write(new byte[] { '\r' });
+		output.flush();
 	}
 
 	/**
@@ -267,6 +225,10 @@ public class ElmSerial implements ObdSerial {
 		return visit.rubbish();
 	}
 
+	/**
+	 * Attempts to turn off echo at the device to save bandwidth.
+	 * @throws IOException in the event of a timeout or other error communicating.
+	 */
 	private void turnOffEcho() throws IOException {
 		byte[] temp_buf = new byte[80];
 		send_command("ate0"); // turn off the echo
@@ -277,7 +239,7 @@ public class ElmSerial implements ObdSerial {
 			ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
 			if (res == ELMReadResult.PROMPT)
 				break;
-			if (res == ELMReadResult.TIMEOUT) {
+			else if (res == ELMReadResult.TIMEOUT) {
 				timedOut = true;
 				break;
 			}
@@ -288,15 +250,25 @@ public class ElmSerial implements ObdSerial {
 				ELMReadResult res = read_comport(temp_buf, AT_TIMEOUT);
 				if (res == ELMReadResult.PROMPT)
 					break;
-				if (res == ELMReadResult.TIMEOUT) {
+				else if (res == ELMReadResult.TIMEOUT) {
 					timedOut = true;
 					break;
 				}
 			}
-		}		
+		} else {
+			throw new IOException("Timed out while trying to disable echo.");
+		}
 	}
 
-	public ELMReadResult read_comport(byte[] buf, int timeout) throws IOException {
+	/**
+	 * Attempts to read from the Stream.
+	 * @param buf the buffer to read into.
+	 * @param timeout Will return ElmReadResult.TIMEOUT after this much time without data.
+	 * @return the result of the read.
+	 * @throws IOException
+	 */
+	private ELMReadResult read_comport(byte[] buf, int timeout) throws IOException {
+		//Wait for data.
 		long startTime = System.currentTimeMillis();
 		while(input.available()==0){
 			try {
@@ -310,6 +282,7 @@ public class ElmSerial implements ObdSerial {
 				return ELMReadResult.TIMEOUT;
 			}
 		}
+		//Read the data.
 		int len = input.read(buf);
 		if (len == 0)
 			return ELMReadResult.EMPTY;
@@ -322,14 +295,13 @@ public class ElmSerial implements ObdSerial {
 		return ELMReadResult.DATA;
 	}
 
-	public void send_command(byte[] command) throws IOException {
-		output.write(command);
-		output.write(new byte[] { '\r' });
-		output.flush();
-	}
-
-	// Lifted from Scantool
-	String get_protocol_string(ELMInterfaceType interface_type, int protocol_id) {
+	/**
+	 * Converts an interface type to a human-readable String. Lifted from Scantool.
+	 * @param interface_type
+	 * @param protocol_id
+	 * @return
+	 */
+	public static String get_protocol_string(ELMInterfaceType interface_type, int protocol_id) {
 		switch (interface_type) {
 		case INTERFACE_ELM320:
 			return "SAE J1850 PWM (41.6 kBit/s)";
@@ -412,14 +384,15 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	// TODO make this not ugly
-	StringBuffer response = new StringBuffer(256);
+
 	//Lifted from Scantool.
-	public ResetResult resetAndHandshake() throws IOException, SerialPortStateException {
+	public ResetResult resetAndHandshake() throws IOException {
+		StringBuffer response = new StringBuffer(256);
 		logger.logInfo("Resetting hardware interface.");
-		/*if(portState != SerialState.OPEN){
-			logger.logWarning("resetAndHandshake called without an open port.");
-			throw new SerialPortStateException();
-		}*/
+		if(!isOpen){
+			logger.logWarning("resetAndHandshake() called after stop().");
+			throw new IOException("resetAndHandshake() called after stop().");
+		}
 		// case RESET_START:
 		// wait until we either get a prompt or the timer times out
 		long time = System.currentTimeMillis();
@@ -471,7 +444,7 @@ public class ElmSerial implements ObdSerial {
 			case INTERFACE_ELM323: case INTERFACE_ELM327:
 				logger.logInfo("Found an "+device.toString());
 				logger.logInfo("Waiting for ECU timeout...");
-				return RESET_ECU_TIMEOUT();
+				return RESET_ECU_TIMEOUT(response);
 			case INTERFACE_ELM320: case INTERFACE_ELM322:
 				logger.logInfo("Found a "+device.toString());
 				return new ResetResult(device.toString(), true);
@@ -490,7 +463,7 @@ public class ElmSerial implements ObdSerial {
 		}
 	}
 
-	ResetResult RESET_ECU_TIMEOUT() throws IOException {
+	private ResetResult RESET_ECU_TIMEOUT(StringBuffer response) throws IOException {
 		// if (serial_time_out) // if the timer timed out
 		// {
 		if (device == ELMInterfaceType.INTERFACE_ELM327) {
@@ -498,13 +471,13 @@ public class ElmSerial implements ObdSerial {
 			send_command("0100");
 			response = new StringBuffer(256);
 			logger.logInfo("Detecting OBD protocol...");
-			return RESET_WAIT_0100();
+			return RESET_WAIT_0100(response);
 		} else //TODO Is this right?
 			return new ResetResult(device.toString(), true);
 		// }
 	}
 
-	ResetResult RESET_WAIT_0100() throws IOException {
+	private ResetResult RESET_WAIT_0100(StringBuffer response) throws IOException {
 		byte[] buf = new byte[128];
 		while(true){
 			ELMReadResult readStatus = read_comport(buf, ECU_TIMEOUT);
@@ -526,7 +499,7 @@ public class ElmSerial implements ObdSerial {
 					}
 					@Override
 					public Object hexData() {
-						return new ResetResult("Detected interface.", true);
+						return new ResetResult("OK.", true);
 					}
 					@Override
 					public Object noData() {
@@ -550,8 +523,8 @@ public class ElmSerial implements ObdSerial {
 	}
 
 	@Override
-	public void requestPID(final PIDResultListener list, final int pid, final int numBytes) throws IOException, SerialPortStateException {
-		if (getState() == SerialState.OPEN) {
+	public void requestPID(final PIDResultListener list, final int pid, final int numBytes) throws IOException {
+		if (isOpen) {
 			String cmd = String.format("01%02X", pid);
 			send_command(cmd); // send command for that particular sensor
 			final byte[] buf = new byte[256];
@@ -605,8 +578,8 @@ public class ElmSerial implements ObdSerial {
 				}
 			}
 		} else {
-			logger.logWarning("requestPID called without an open port.");
-			throw new SerialPortStateException();
+			logger.logWarning("requestPID() called after stop().");
+			throw new IOException("requestPID() called after stop().");
 		}
 	}
 

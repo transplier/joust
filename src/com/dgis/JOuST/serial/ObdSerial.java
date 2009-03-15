@@ -2,6 +2,30 @@ package com.dgis.JOuST.serial;
 
 import java.io.IOException;
 
+/*
+ * Copyright (C) 2009 Giacomo Ferrari
+ * This file is part of JOuST.
+ *  JOuST is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  JOuST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with JOuST.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * A generic interface to an OBD controller.
+ *
+ * Copyright (C) 2009 Giacomo Ferrari
+ * @author Giacomo Ferrari
+ */
+
 public interface ObdSerial {
 	
 	// timeouts, in milliseconds
@@ -9,11 +33,14 @@ public interface ObdSerial {
 	public static final int  ECU_TIMEOUT=           5000;
 	
 	/**
-	 * Attempts to release all communication ports used by this instance.
+	 * Attempts to stop all communication used by this instance.
 	 * Subsequent calls to connect() or requestPID() should throw exceptions.
+	 * This should release all communications resources used by the instance
+	 * (as in, all streams should be .close()'d).
+	 * Implementation specific whether the instance can be re-opened.
 	 * @throws IOException
 	 */
-	public void close() throws IOException, SerialPortStateException;
+	public void stop() throws IOException;
 	
 	/**
 	 * Attempts to establish communications to the controller.
@@ -22,7 +49,7 @@ public interface ObdSerial {
 	 * @return
 	 * @throws IOException
 	 */
-	public ResetResult resetAndHandshake() throws IOException, SerialPortStateException;
+	public ResetResult resetAndHandshake() throws IOException;
 	
 	/**
 	 * Requests an arbitrary PID from the ECU. May return before request
@@ -33,12 +60,13 @@ public interface ObdSerial {
 	 * @throws IOException
 	 * @throws SerialPortStateException
 	 */
-	public void requestPID(PIDResultListener list, int pid, int numBytes) throws IOException, SerialPortStateException;
+	public void requestPID(PIDResultListener list, int pid, int numBytes) throws IOException;
 	
 	/**
-	 * @return the state of the serial connection (ignores protocol state, OS reported state only).
+	 * @return the state of the connection (ignores protocol state,
+	 * reports if close() has been called).
 	 */
-	public SerialState getState();
+	public boolean isOpen();
 
 	/**
 	 * Gets an arbitrary string identifying the device to the user.
@@ -51,16 +79,6 @@ interface PIDResultListener{
 	void dataReceived(int pid, int numBytes, byte[] data);
 	void error(String msg); 
 }
-
-class SerialPortStateException extends Exception{
-	private static final long serialVersionUID = 1L;
-}
-
-enum SerialState {
-	OPEN, ERROR, CLOSED
-}
-
-
 
 class ResetResult{
 	/**
