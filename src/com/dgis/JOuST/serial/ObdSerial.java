@@ -2,6 +2,9 @@ package com.dgis.JOuST.serial;
 
 import java.io.IOException;
 
+import com.dgis.JOuST.PIDNotFoundException;
+import com.dgis.JOuST.PIDResultListener;
+
 /*
  * Copyright (C) 2009 Giacomo Ferrari
  * This file is part of JOuST.
@@ -58,9 +61,30 @@ public interface ObdSerial {
 	 * @param pid the PID to query.
 	 * @param numBytes the number of bytes to expect in return.
 	 * @throws IOException
-	 * @throws SerialPortStateException
 	 */
 	public void requestPID(PIDResultListener list, int pid, int numBytes) throws IOException;
+	
+	/**
+	 * Requests an arbitrary PID from the ECU. May return before request
+	 * is completed. Must get size information from config file.
+	 * @param list the listener to call when the data is received.
+	 * @param pid the PID to query.
+	 * @throws IOException
+	 * @throws SerialPortStateException
+	 * @throws PIDNotFoundException
+	 */
+	public void requestPID(PIDResultListener list, int pid) throws IOException, PIDNotFoundException;
+	
+	/**
+	 * Requests an arbitrary PID from the ECU by name. May return before request
+	 * is completed. Must get information from config file.
+	 * @param list the listener to call when the data is received.
+	 * @param pid the PID to query.
+	 * @throws IOException
+	 * @throws SerialPortStateException
+	 * @throws PIDNotFoundException
+	 */
+	public void requestPID(PIDResultListener list, String name) throws IOException, PIDNotFoundException;
 	
 	/**
 	 * @return the state of the connection (ignores protocol state,
@@ -73,11 +97,6 @@ public interface ObdSerial {
 	 * @return
 	 */
 	public String getInterfaceIdentifier();
-}
-
-interface PIDResultListener{
-	void dataReceived(int pid, int numBytes, byte[] data);
-	void error(String msg); 
 }
 
 class ResetResult{

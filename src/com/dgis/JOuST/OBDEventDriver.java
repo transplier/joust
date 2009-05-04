@@ -38,7 +38,7 @@ public class OBDEventDriver implements IOBDEventDriver {
 	
 	private Thread requester;
 	
-	//TODO: Make this lockless? Do we care?
+	//TODO: Add locks around this everywhere.
 	private Queue<PIDQueueItem> processingQueue = new LinkedList<PIDQueueItem>();
 
 	private volatile boolean shutdownFlag = false;
@@ -102,11 +102,15 @@ public class OBDEventDriver implements IOBDEventDriver {
 				}
 				
 				private void cleanup() {
+					//by re-adding here, we avoid re-request of pid until this request is done.
 					ArrayList<PIDListenerQueueItem> toRemove = new ArrayList<PIDListenerQueueItem>();
 					for(PIDListenerQueueItem lqi : qi.listeners) {
 						if(!lqi.persistent) toRemove.add(lqi);
 					}
 					qi.listeners.removeAll(toRemove);
+					
+					//TODO: check to make sure nobody added anything to processingQueue related to qi.pid
+					//Alternately, lock the queue and just call enqueue() a bunch of times.
 					if(qi.listeners.size() != 0) processingQueue.add(qi);
 				}
 				

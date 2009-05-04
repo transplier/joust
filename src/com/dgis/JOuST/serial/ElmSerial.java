@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import com.dgis.JOuST.OBDInterface;
+import com.dgis.JOuST.PIDNotFoundException;
+import com.dgis.JOuST.PIDResultListener;
 import com.dgis.util.Logger;
 
 /*
@@ -33,7 +36,7 @@ import com.dgis.util.Logger;
 public class ElmSerial implements ObdSerial {
 	
 	public static final int  ATZ_TIMEOUT=           1500;
-	public static final int  AT_TIMEOUT=            130;
+	public static final int  AT_TIMEOUT=            500;
 
 	private static final byte SPECIAL_DELIMITER = '\r';
 
@@ -543,7 +546,7 @@ public class ElmSerial implements ObdSerial {
 					process_response(new AElmResponseVisitor(){
 							@Override
 							Object defaultCase(){
-								list.error("Did not get a hexadecimal value back from interface when requesting PID#"+String.format("%02X",pid));
+								list.error("Did not get a hexadecimal value back from interface when requesting PID#"+String.format("%02X",pid), pid);
 								return null;
 							}
 							@Override
@@ -557,7 +560,7 @@ public class ElmSerial implements ObdSerial {
 									list.dataReceived(pid, numBytes, buf);
 								} else {
 									//TODO log something- got nothing back.
-									list.error("Got no data back from interface when requesting PID#"+String.format("%02X",pid));
+									list.error("Got no data back from interface when requesting PID#"+String.format("%02X",pid), pid);
 								}
 								return null;
 							}
@@ -566,7 +569,7 @@ public class ElmSerial implements ObdSerial {
 				} else if(response_status == ELMReadResult.EMPTY){
 					if(System.currentTimeMillis() - start_time > OBD_REQUEST_TIMEOUT){
 						//TODO log timeout
-						list.error("Got no data back from interface when requesting PID#"+String.format("%02X",pid));
+						list.error("Got no data back from interface when requesting PID#"+String.format("%02X",pid), pid);
 						return;
 					} else {
 						//Not enough data, still not timed out
@@ -574,13 +577,32 @@ public class ElmSerial implements ObdSerial {
 					}
 				} else {
 					//TODO log something.
-					list.error("Unknown error: "+ response_status.name());
+					list.error("Unknown error: "+ response_status.name(), pid);
 				}
 			}
 		} else {
 			logger.logWarning("requestPID() called after stop().");
 			throw new IOException("requestPID() called after stop().");
 		}
+	}
+	
+	@Override
+	public void requestPID(PIDResultListener list, int pid) throws IOException,
+			PIDNotFoundException {
+		Integer size = OBDInterface.PID_SIZES.get(pid);
+		if(size == null) throw new PIDNotFoundException(pid);
+		requestPID(list, pid, size);
+	}
+
+	@Override
+	public void requestPID(PIDResultListener list, String name)
+			throws IOException, PIDNotFoundException {
+		Integer pid = OBDInterface.PID_NAMES.get(name);
+		if(pid == null) throw new PIDNotFoundException(-1);
+		Integer size = OBDInterface.PID_SIZES.get(pid);
+		if(size == null) throw new PIDNotFoundException(pid);
+		requestPID(list, pid, size);
+		
 	}
 
 	// Lifted from ScanTool
@@ -613,7 +635,7 @@ public class ElmSerial implements ObdSerial {
 				while (in_ptr < response.length()
 						&& response.charAt(in_ptr) != SPECIAL_DELIMITER)
 					in_ptr++;
-				if (response.charAt(in_ptr) != SPECIAL_DELIMITER) // skip the
+				//TODO if (response.charAt(in_ptr) != SPECIAL_DELIMITER) // skip the
 																	// delimiter
 					in_ptr++;
 			}
@@ -648,6 +670,7 @@ public class ElmSerial implements ObdSerial {
 	public String getInterfaceIdentifier() {
 		return device.toString();
 	}
+
 }
 
 
